@@ -15,24 +15,28 @@ class UnifiedCodeExtractor:
     
     def __init__(self):
         self.supported_formats = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts', '.m2ts']
-        self.skip_prefixes = ["FC2", "FC2PPV", "FC2-PPV"]
+        # 需要跳過的檔案前綴模式（FC2、PPV 相關）
+        self.skip_prefixes = [
+            "FC2", "FC2PPV", "FC2-PPV", "FC2_PPV",
+            "PPV-", "PPV_", "PPV", 
+            "FC2-", "FC2_"
+        ]
         # 增強的番號模式，按優先級排序
         self.code_patterns = [
             (r'([A-Z]{2,6}-\d{3,5})', '標準格式'),
             (r'([A-Z]{2,6}-\d{3,5})[A-Z]*', '標準格式帶後綴'),  # 處理 STARS-707CH → STARS-707
             (r'([A-Z]{2,6}\d{3,5})', '無橫槓格式'),
-            (r'([A-Z]{2,6}[._]\d{3,5})', '特殊分隔符格式'),    # 處理 STARS_707, STARS.707
-            (r'(\d{6}[-_]\d{3})', '數字格式')
+            (r'([A-Z]{2,6}[._]\d{3,5})', '特殊分隔符格式'),    # 處理 STARS_707, STARS.707            (r'(\d{6}[-_]\d{3})', '數字格式')
         ]
     
     def extract_code(self, filename: str) -> Optional[str]:
         """從檔案名稱提取番號"""
         base_name = Path(filename).stem  # 取得不含副檔名的檔案名稱
         
-        # 檢查跳過前綴
-        for prefix in self.skip_prefixes:
-            if base_name.upper().startswith(prefix): 
-                return None
+        # 增強的 FC2/PPV 過濾邏輯
+        if self._should_skip_file(base_name):
+            logger.debug(f"跳過 FC2/PPV 檔案: {filename}")
+            return None
         
         # 增強的檔名清理邏輯
         cleaned_name = base_name
@@ -92,8 +96,7 @@ class UnifiedCodeExtractor:
             return False
         
         # 檢查是否符合常見番號格式
-        valid_patterns = [
-            r'^[A-Z]{2,6}-\d{3,5}$',     # STARS-707
+        valid_patterns = [            r'^[A-Z]{2,6}-\d{3,5}$',     # STARS-707
             r'^[A-Z]{2,6}\d{3,5}$',      # STARS707
             r'^\d{6}-\d{3}$'             # 240101-001
         ]
@@ -102,4 +105,52 @@ class UnifiedCodeExtractor:
             if re.match(pattern, code):
                 return True
         
+        return False
+
+    def _should_skip_file(self, base_name: str) -> bool:
+        """檢查是否應該跳過此檔案（FC2/PPV 相關）"""
+        upper_name = base_name.upper()
+        
+        # 精確匹配 FC2/PPV 相關模式
+        skip_patterns = [
+            r'^FC2[-_]',           # FC2- 或 FC2_
+            r'^FC2PPV[-_]',        # FC2PPV- 或 FC2PPV_  
+            r'^FC2\d',             # FC2 後直接接數字
+            r'^PPV[-_]\d',         # PPV-數字 或 PPV_數字
+            r'^PPV\d',             # PPV 後直接接數字
+        ]
+        
+        # 檢查是否符合任何需要跳過的模式
+        for pattern in skip_patterns:
+            if re.match(pattern, upper_name):
+                return True
+                
+        # 額外檢查：檔名中包含明顯的 FC2/PPV 標識
+        if any(marker in upper_name for marker in ['FC2PPV', 'FC2-PPV', 'FC2_PPV']):
+            return True
+            
+        return False
+
+    def _should_skip_file(self, base_name: str) -> bool:
+        """檢查是否應該跳過此檔案（FC2/PPV 相關）"""
+        upper_name = base_name.upper()
+        
+        # 精確匹配 FC2/PPV 相關模式
+        skip_patterns = [
+            r'^FC2[-_]',           # FC2- 或 FC2_
+            r'^FC2PPV[-_]',        # FC2PPV- 或 FC2PPV_  
+            r'^FC2\d',             # FC2 後直接接數字
+            r'^PPV[-_]\d',         # PPV-數字 或 PPV_數字
+            r'^PPV\d',             # PPV 後直接接數字
+        ]
+        
+        # 檢查是否符合任何需要跳過的模式
+        for pattern in skip_patterns:
+            if re.match(pattern, upper_name):
+                return True
+                
+        # 額外檢查：檔名中包含明顯的 FC2/PPV 標識
+        if any(marker in upper_name for marker in ['FC2PPV', 'FC2-PPV', 'FC2_PPV']):
+            return True
+            
         return False
