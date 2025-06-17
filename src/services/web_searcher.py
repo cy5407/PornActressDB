@@ -75,8 +75,14 @@ class WebSearcher:
             logger.error(f"AV-WIKI 搜尋 {code} 時發生網路錯誤: {e}")
         except Exception as e:
             logger.error(f"AV-WIKI 解析 {code} 時發生未知錯誤: {e}", exc_info=True)
+        
+        # 如果 AV-WIKI 沒找到，嘗試 chiba-f.net
+        logger.debug(f"AV-WIKI 未找到 {code}，嘗試 chiba-f.net...")
+        chiba_result = self._search_chiba_f_net(code, stop_event)
+        if chiba_result:
+            return chiba_result
             
-        logger.warning(f"番號 {code} 未在 AV-WIKI 中找到女優資訊。")
+        logger.warning(f"番號 {code} 未在所有搜尋源中找到女優資訊。")
         return None
 
     def _is_actress_name(self, text: str) -> bool:
@@ -125,9 +131,86 @@ class WebSearcher:
                         logger.error(f"批次處理 {item} 時發生錯誤: {e}")
                         if progress_callback: 
                             progress_callback(f"💥 {item}: 處理失敗 - {e}\n")
-            if i + self.batch_size < len(items) and total_batches > 1: 
-                time.sleep(self.batch_delay)
+            if i + self.batch_size < len(items) and total_batches > 1:                time.sleep(self.batch_delay)
         return results
+    
+    def _search_chiba_f_net(self, code: str, stop_event: threading.Event) -> Optional[Dict]:
+        """使用 chiba-f.net 搜尋女優資訊"""
+        if stop_event.is_set():
+            return None
+            
+        search_url = f"https://chiba-f.net/search/?keyword={quote(code)}"
+        try:
+            with httpx.Client(headers=self.headers, timeout=self.timeout) as client:
+                response = client.get(search_url)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.content, "html.parser")
+                
+                # 查找產品區塊
+                product_divs = soup.find_all('div', class_='product-div')
+                
+                for product_div in product_divs:
+                    # 檢查番號是否匹配
+                    pno_element = product_div.find('div', class_='pno')
+                    if pno_element and code.upper() in pno_element.text.upper():
+                        return self._extract_chiba_product_info(product_div, code)
+                
+                # 如果沒有找到完全匹配，嘗試模糊匹配
+                for product_div in product_divs:
+                    product_text = product_div.get_text()
+                    if code.upper() in product_text.upper():
+                        return self._extract_chiba_product_info(product_div, code)
+                        
+        except httpx.RequestError as e:
+            logger.error(f"chiba-f.net 搜尋 {code} 時發生網路錯誤: {e}")
+        except Exception as e:
+            logger.error(f"chiba-f.net 解析 {code} 時發生未知錯誤: {e}", exc_info=True)
+            
+        logger.debug(f"番號 {code} 未在 chiba-f.net 中找到女優資訊。")
+        return None
+    
+    def _extract_chiba_product_info(self, product_div, code: str) -> Dict:
+        """從 chiba-f.net 產品區塊提取資訊"""
+        result = {
+            'source': 'chiba-f.net',
+            'actresses': [],
+            'studio': None,
+            'studio_code': None,
+            'release_date': None
+        }
+        
+        try:
+            # 提取女優名稱
+            actress_span = product_div.find('span', class_='fw-bold')
+            if actress_span:
+                result['actresses'] = [actress_span.text.strip()]
+            
+            # 提取系列/片商資訊
+            series_link = product_div.find('a', href=re.compile(r'../series/'))
+            if series_link:
+                result['studio'] = series_link.text.strip()
+                # 從 href 提取片商代碼
+                href = series_link.get('href', '')
+                if '../series/' in href:
+                    result['studio_code'] = href.replace('../series/', '').strip()
+            
+            # 提取發行日期
+            date_span = product_div.find('span', class_='start_date')
+            if date_span:
+                result['release_date'] = date_span.text.strip()
+            
+            # 如果沒有找到片商，嘗試從番號推測
+            if not result['studio_code']:
+                result['studio_code'] = self._extract_studio_code_from_number(code)
+            
+            if result['actresses']:
+                self.search_cache[code] = result
+                logger.info(f"番號 {code} 透過 {result['source']} 找到: {', '.join(result['actresses'])}, 片商: {result.get('studio', '未知')}")
+                
+        except Exception as e:
+            logger.warning(f"提取 {code} 從 chiba-f.net 資訊時發生部分錯誤: {str(e)}")
+        
+        return result if result.get('actresses') else None
     
     def _extract_studio_info(self, soup: BeautifulSoup, code: str) -> Dict:
         """從網頁中提取片商資訊"""
