@@ -1,0 +1,34 @@
+# 基本相依套件
+# 請根據專案需求調整
+
+# 測試相關
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+
+# 程式碼品質
+black>=23.0.0
+flake8>=6.0.0
+isort>=5.12.0
+
+# 環境設定
+python-dotenv>=1.0.0
+
+# 如果是 Web 專案，請取消註解以下套件
+# flask>=2.3.0
+# fastapi>=0.100.0
+# django>=4.2.0
+
+# 如果需要資料庫，請取消註解以下套件
+# sqlalchemy>=2.0.0
+# psycopg2-binary>=2.9.0
+# pymongo>=4.4.0
+
+# 如果需要 HTTP 請求，請取消註解以下套件
+# requests>=2.31.0
+# httpx>=0.24.0
+
+# 如果需要資料處理，請取消註解以下套件
+# pandas>=2.0.0
+# numpy>=1.24.0
+# matplotlib>=3.7.0

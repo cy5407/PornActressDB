@@ -1,0 +1,51 @@
+{
+  "files.associations": {
+    "*.txt": "plaintext"
+  },
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": true,
+  "explorer.sortOrder": "type",
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.patterns": {
+    "*.txt": "",
+    "README.md": "*.md"
+  },
+  "python.defaultInterpreterPath": "./venv/bin/python",
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": [
+    "tests/"
+  ],
+  "github.copilot.enable": true,
+  "github.copilot.editor.enableCodeActions": true,
+  "github.copilot.renameSuggestions.triggerAutomatically": true,
+  "window.commandCenter": true,
+  "chat.commandCenter.enabled": true,
+  "workbench.commandPalette.experimental.askChatLocation": "chatView",
+  "github.copilot.chat.search.semanticTextResults": true,
+  "github.copilot.nextEditSuggestions.enabled": true,
+  "editor.inlineSuggest.edits.showCollapsed": true,
+  "github.copilot.chat.followUps": "firstOnly",
+  "github.copilot.chat.localeOverride": "zh-TW",
+  "github.copilot.chat.useProjectTemplates": true,
+  "github.copilot.chat.scopeSelection": true,
+  "chat.detectParticipant.enabled": false,
+  "chat.promptFiles": true,
+  "chat.promptFilesLocations": {
+    ".github/personal": true
+  },
+  "github.copilot.chat.languageContext.typescript.enabled": true,
+  "github.copilot.chat.agent.thinkingTool": true,
+  "github.copilot.chat.editor.temporalContext.enabled": true,
+  "github.copilot.chat.codesearch.enabled": true,
+  "chat.editing.confirmEditRequestRemoval": true,
+  "chat.editing.confirmEditRequestRetry": true,
+  "inlineChat.finishOnType": false,
+  "chat.agent.enabled": true,
+  "chat.agent.maxRequests": 75,
+  "telemetry.telemetryLevel": "off",
+  "accessibility.voice.speechLanguage": "zh-TW",
+  "accessibility.voice.autoSynthesize": "off",
+  "accessibility.voice.keywordActivation": "off",
+  "accessibility.voice.speechTimeout": 5000,
+  "accessibility.voice.ignoreCodeBlocks": true
+}

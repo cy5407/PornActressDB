@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "整理 AI 實驗檔案",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "scripts/manage_ai_files.py",
+        "--organize"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "執行測試",
+      "type": "shell",
+      "command": "pytest",
+      "args": [
+        "tests/",
+        "-v"
+      ],
+      "group": "test"
+    },
+    {
+      "label": "產生專案報告",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "scripts/generate_project_summary.py"
+      ],
+      "group": "build"
+    }
+  ]
+}
