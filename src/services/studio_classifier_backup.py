@@ -171,8 +171,7 @@ class StudioClassificationCore:
         
         total_videos = sum(studio_stats.values())
         if total_videos == 0:
-            return 'UNKNOWN', 0.0
-        
+            return 'UNKNOWN', 0.0        
         # 找出影片數最多的片商
         main_studio = max(studio_stats.items(), key=lambda x: x[1])
         studio_name, video_count = main_studio
@@ -282,8 +281,7 @@ class StudioClassificationCore:
                         progress_callback(f"❌ {actress_name}: 系統錯誤 - {str(e)}\n")
                 
             except Exception as e:
-                move_stats['failed'] += 1
-                self.logger.error(f"移動女優 {actress_name} 時發生未預期的錯誤: {e}", exc_info=True)
+                move_stats['failed'] += 1                self.logger.error(f"移動女優 {actress_name} 時發生未預期的錯誤: {e}", exc_info=True)
                 if progress_callback:
                     progress_callback(f"❌ {actress_name}: 未預期的錯誤 - {str(e)}\n")
         
