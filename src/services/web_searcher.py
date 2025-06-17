@@ -46,6 +46,9 @@ class WebSearcher:
                 actress_elements = soup.find_all(class_="actress-name")
                 actresses = [actress.text.strip() for actress in actress_elements if actress.text.strip()]
                 
+                # 新增：搜尋片商資訊
+                studio_info = self._extract_studio_info(soup, code)
+                
                 if not actresses:
                     page_text = soup.get_text()
                     lines = [line.strip() for line in page_text.split('\n') if line.strip()]
@@ -55,12 +58,17 @@ class WebSearcher:
                                 potential_name = lines[j].strip()
                                 if potential_name and self._is_actress_name(potential_name):
                                     if potential_name not in actresses: 
-                                        actresses.append(potential_name)
-                
+                                        actresses.append(potential_name)                
                 if actresses:
-                    result = {'source': 'AV-WIKI (增強版)', 'actresses': actresses}
+                    result = {
+                        'source': 'AV-WIKI (增強版)', 
+                        'actresses': actresses,
+                        'studio': studio_info.get('studio'),
+                        'studio_code': studio_info.get('studio_code'),
+                        'release_date': studio_info.get('release_date')
+                    }
                     self.search_cache[code] = result
-                    logger.info(f"番號 {code} 透過 {result['source']} 找到: {', '.join(result['actresses'])}")
+                    logger.info(f"番號 {code} 透過 {result['source']} 找到: {', '.join(result['actresses'])}, 片商: {result.get('studio', '未知')}")
                     return result
 
         except httpx.RequestError as e:
@@ -120,3 +128,116 @@ class WebSearcher:
             if i + self.batch_size < len(items) and total_batches > 1: 
                 time.sleep(self.batch_delay)
         return results
+    
+    def _extract_studio_info(self, soup: BeautifulSoup, code: str) -> Dict:
+        """從網頁中提取片商資訊"""
+        studio_info = {
+            'studio': None,
+            'studio_code': None,
+            'release_date': None
+        }
+        
+        try:
+            # 方法1: 嘗試從番號中提取片商代碼
+            studio_code = self._extract_studio_code_from_number(code)
+            if studio_code:
+                studio_info['studio_code'] = studio_code
+                studio_info['studio'] = self._get_studio_name_by_code(studio_code)
+            
+            # 方法2: 從網頁內容中搜尋片商資訊
+            page_text = soup.get_text()
+            
+            # 搜尋常見的片商名稱和模式
+            studio_patterns = [
+                # 直接片商名稱匹配
+                (r'(S1|SOD|MOODYZ|PREMIUM|WANZ|FALENO|ATTACKERS|E-BODY|KAWAII|FITCH|MADONNA|PRESTIGE)', r'\1'),
+                # 製作公司/發行商模式
+                (r'製作[：:]\s*([^\n\r]+)', r'\1'),
+                (r'發行[：:]\s*([^\n\r]+)', r'\1'),
+                (r'メーカー[：:]\s*([^\n\r]+)', r'\1'),
+                # 番號前綴模式 
+                (r'品番[：:]\s*([A-Z]+)-?\d+', r'\1'),
+            ]
+            
+            for pattern, replacement in studio_patterns:
+                match = re.search(pattern, page_text, re.IGNORECASE)
+                if match:
+                    extracted_studio = match.group(1).strip()
+                    if extracted_studio and len(extracted_studio) < 50:  # 合理長度限制
+                        if not studio_info['studio']:
+                            studio_info['studio'] = extracted_studio
+                        if not studio_info['studio_code'] and len(extracted_studio) <= 10:
+                            studio_info['studio_code'] = extracted_studio
+                        break
+            
+            # 方法3: 嘗試提取發行日期
+            date_patterns = [
+                r'發售日[：:]\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2})',
+                r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})',
+                r'(\d{4}\.\d{1,2}\.\d{1,2})'
+            ]
+            
+            for pattern in date_patterns:
+                match = re.search(pattern, page_text)
+                if match:
+                    studio_info['release_date'] = match.group(1)
+                    break                    
+        except Exception as e:
+            logger.warning(f"提取片商資訊時發生錯誤: {e}")
+        
+        return studio_info
+    
+    def _extract_studio_code_from_number(self, code: str) -> Optional[str]:
+        """從番號中提取片商代碼"""
+        if not code:
+            return None
+            
+        # 提取字母部分作為片商代碼
+        match = re.match(r'^([A-Z]+)', code.upper())
+        if match:
+            return match.group(1)
+        return None
+    
+    def _get_studio_name_by_code(self, studio_code: str) -> Optional[str]:
+        """根據片商代碼獲取片商名稱（從 studios.json 載入）"""
+        try:
+            import json
+            from pathlib import Path
+            
+            # 載入 studios.json 檔案
+            studios_file = Path(__file__).parent.parent.parent / 'studios.json'
+            if studios_file.exists():
+                with open(studios_file, 'r', encoding='utf-8') as f:
+                    studios_data = json.load(f)
+                
+                # 反向查找：從代碼找到片商
+                studio_code_upper = studio_code.upper()
+                for studio_name, codes in studios_data.items():
+                    if studio_code_upper in [code.upper() for code in codes]:
+                        return studio_name
+        except Exception as e:
+            logger.warning(f"載入 studios.json 失敗: {e}")
+        
+        # 回退到內建對應表
+        studio_mapping = {
+            'STAR': 'SOD',
+            'STARS': 'SOD', 
+            'SDJS': 'SOD',
+            'SSIS': 'S1',
+            'SSNI': 'S1',
+            'IPX': 'IdeaPocket',
+            'IPZZ': 'IdeaPocket',
+            'MIDV': 'MOODYZ',
+            'MIAA': 'MOODYZ',
+            'WANZ': 'WANZ FACTORY',
+            'FSDSS': 'FALENO',
+            'PRED': 'PREMIUM',
+            'ABW': 'Prestige',
+            'BF': 'BeFree',
+            'CAWD': 'kawaii',
+            'JUFD': 'Fitch',
+            'JUL': 'MADONNA',
+            'JUY': 'MADONNA',
+        }
+        
+        return studio_mapping.get(studio_code.upper(), studio_code)
