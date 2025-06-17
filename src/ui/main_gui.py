@@ -27,8 +27,13 @@ class UnifiedActressClassifierGUI:
         self.config_manager = ConfigManager()
         self.core = UnifiedClassifierCore(self.config_manager)
         
+        # 建立並設定偏好管理器
+        from models.config import PreferenceManager
+        preference_manager = PreferenceManager()
+        self.core.set_preference_manager(preference_manager)
+        
         # 設定互動式分類器
-        self.interactive_classifier = InteractiveClassifier(self.core.preference_manager, self.root)
+        self.interactive_classifier = InteractiveClassifier(preference_manager, self.root)
         self.core.set_interactive_classifier(self.interactive_classifier)
         
         self.selected_path = tk.StringVar(value=self.config_manager.get('paths', 'default_input_dir', '.'))
