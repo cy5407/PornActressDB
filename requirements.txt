@@ -1,5 +1,41 @@
-# 基本相依套件
-# 請根據專案需求調整
+# 女優分類系統相依套件
+# GUI 相關
+tkinter  # 內建於 Python，通常不需要安裝
+
+# HTTP 請求
+httpx>=0.25.0
+requests>=2.31.0
+
+# HTML 解析
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# 檔案處理
+pathlib  # 內建於 Python 3.4+
+
+# 資料庫
+sqlite3  # 內建於 Python
+
+# 設定檔處理
+configparser  # 內建於 Python
+
+# 日誌處理
+logging  # 內建於 Python
+
+# 多執行緒
+threading  # 內建於 Python
+
+# 檔案操作
+shutil  # 內建於 Python
+
+# 正則表達式
+re  # 內建於 Python
+
+# 型別提示
+typing  # 內建於 Python 3.5+
+
+# 選用：美化主題
+ttkbootstrap>=1.10.0
 
 # 測試相關
 pytest>=7.0.0
@@ -13,11 +49,6 @@ isort>=5.12.0
 
 # 環境設定
 python-dotenv>=1.0.0
-
-# 如果是 Web 專案，請取消註解以下套件
-# flask>=2.3.0
-# fastapi>=0.100.0
-# django>=4.2.0
 
 # 如果需要資料庫，請取消註解以下套件
 # sqlalchemy>=2.0.0
