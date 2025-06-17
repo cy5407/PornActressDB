@@ -1,23 +1,137 @@
 {
-    "S1": [
-        "SSIS",
-        "SSNI",
-        "STARS"
-    ],
-    "MOODYZ": [
-        "MIRD",
-        "MIDD",
-        "MIDV"
-    ],
-    "PREMIUM": [
-        "IPX",
-        "IPZ",
-        "IPZZ"
-    ],
-    "WANZ": [
-        "WANZ"
-    ],
-    "FALENO": [
-        "FSDSS"
-    ]
+  "S1": [
+    "SSIS",
+    "SSNI",
+    "SNIS",
+    "SONE",
+    "ONEZ",
+    "OFJE"
+  ],  "MOODYZ": [
+    "MIRD",
+    "MIDD",
+    "MIDV",
+    "MIDE",
+    "MIAB",
+    "MIAE",
+    "MIAD",
+    "MIFD"
+  ],
+  "PREMIUM": [
+    "IPX",
+    "IPZ",
+    "IPZZ",
+    "IDEA",
+    "IPN",
+    "IDEAPOCKET"
+  ],
+  "WANZ": [
+    "WANZ"
+  ],
+  "FALENO": [
+    "FSDSS",
+    "FNS",
+    "FADSS"
+  ],
+  "KAWAII": [
+    "KAWD",
+    "CAWD",
+    "KWBD"
+  ],
+  "ATTACKERS": [
+    "SHKD",
+    "ADN",
+    "ATID",
+    "RBD",
+    "SSPD"
+  ],
+  "E-BODY": [
+    "EBWH",
+    "EBOD"
+  ],
+  "FITCH": [
+    "JUFD",
+    "JUNY",
+    "JUFE"
+  ],
+  "MADONNA": [
+    "JUQ",
+    "JUL",
+    "JUX",
+    "JUC",
+    "JUKD"
+  ],
+  "PRESTIGE": [
+    "ABW",
+    "ABP",
+    "ABS",
+    "BGN",
+    "CHN"
+  ],
+  "SOD": [
+    "SDJS",
+    "SDMF",
+    "SDNM",
+    "SDDE",
+    "SDMU",
+    "SDAB",
+    "SDMS",
+    "SDMT",
+    "SDSH",
+    "SDSD",
+    "SDAM",
+    "START",
+    "STARS",
+    "STAR",
+    "SACE"
+  ],
+  "Das!": [
+    "DASS",
+    "DASD"
+  ],
+  "Tameike_Goro": [
+    "MEYD",
+    "MDYD"
+  ],
+  "Honnaka": [
+    "HMN",
+    "HNVR"
+  ],
+  "BIBIAN": [
+    "BBAN"
+  ],
+  "ROOKIE": [
+    "ROYD"
+  ],
+  "NATURAL_HIGH": [
+    "NHDTA",
+    "NHDT"
+  ],
+  "KMPVR": [
+    "KMVR"
+  ],
+  "MAXING": [
+    "MXSPS"
+  ],
+  "OFFICE_K": [
+    "OFKU"
+  ],
+  "CRYSTAL_EIZO": [
+    "CRDD",
+    "EKDV"
+  ],
+  "WAAP": [
+    "WA",
+    "WAAP"
+  ],
+  "TMA": [
+    "TMA"
+  ],
+  "OPPAI": [
+    "PPPD",
+    "PPSD"
+  ],
+  "KM_Produce": [
+    "KMI",
+    "KMHR"
+  ]
 }
