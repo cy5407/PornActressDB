@@ -32,15 +32,13 @@ class SQLiteDBManager:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             
-            # 建立主要影片資料表（擴充片商資訊欄位）
+            # 建立主要影片資料表（基本結構）
             cursor.execute('''CREATE TABLE IF NOT EXISTS videos (
                 id INTEGER PRIMARY KEY, 
                 code TEXT NOT NULL UNIQUE, 
                 original_filename TEXT, 
                 file_path TEXT, 
                 studio TEXT, 
-                studio_code TEXT,
-                release_date TEXT,
                 search_method TEXT, 
                 last_updated TIMESTAMP
             )''')
@@ -57,12 +55,6 @@ class SQLiteDBManager:
                 FOREIGN KEY (actress_id) REFERENCES actresses(id) ON DELETE CASCADE
             )''')
             
-            # 建立索引以提升查詢效能
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_code ON videos(code)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_studio ON videos(studio)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_studio_code ON videos(studio_code)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_actress_name ON actresses(name)')
-            
             # 檢查是否需要新增欄位（支援既有資料庫升級）
             cursor.execute("PRAGMA table_info(videos)")
             columns = [column[1] for column in cursor.fetchall()]
@@ -74,6 +66,18 @@ class SQLiteDBManager:
             if 'release_date' not in columns:
                 cursor.execute('ALTER TABLE videos ADD COLUMN release_date TEXT')
                 logger.info("已新增 release_date 欄位至資料庫")
+            
+            # 建立索引以提升查詢效能（在欄位確保存在之後）
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_code ON videos(code)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_studio ON videos(studio)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_actress_name ON actresses(name)')
+            
+            # 檢查新欄位索引（只有在欄位存在時才建立）
+            cursor.execute("PRAGMA table_info(videos)")
+            current_columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'studio_code' in current_columns:
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_studio_code ON videos(studio_code)')
             
             conn.commit()
     
