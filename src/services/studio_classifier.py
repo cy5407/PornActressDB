@@ -61,14 +61,15 @@ class StudioClassificationCore:
             return {'status': 'error', 'message': str(e)}
 
     def _scan_actress_folders(self, root_folder: Path, progress_callback=None) -> List[Path]:
-        """遞迴掃描所有女優資料夾"""
+        """只掃描根目錄第一層的女優資料夾（避免遞迴問題）"""
         actress_folders = []
         
         if progress_callback:
-            progress_callback("🔍 正在遞迴掃描女優資料夾...\n")
+            progress_callback("🔍 正在掃描根目錄的女優資料夾（僅第一層）...\n")
         
         try:
-            for item in root_folder.rglob('*'):
+            # 只掃描第一層子目錄，避免遞迴掃描已分類的片商資料夾
+            for item in root_folder.iterdir():
                 if item.is_dir() and self._is_actress_folder(item):
                     actress_folders.append(item)
                     
@@ -81,6 +82,7 @@ class StudioClassificationCore:
     def _is_actress_folder(self, folder_path: Path) -> bool:
         """判斷是否為女優資料夾"""
         folder_name = folder_path.name
+        folder_name_upper = folder_name.upper()
         
         # 排除明顯的片商資料夾名稱
         studio_folders = {
@@ -89,63 +91,123 @@ class StudioClassificationCore:
             '單體企劃女優', 'SOLO_ACTRESS', 'INDEPENDENT'
         }
         
-        if folder_name.upper() in studio_folders:
+        # 排除通用/系統資料夾名稱
+        excluded_folders = {
+            'AV', 'VIDEO', 'VIDEOS', 'MOVIE', 'MOVIES', 'FILM', 'FILMS',
+            'DOWNLOAD', 'DOWNLOADS', 'TEMP', 'TMP', 'CACHE', 'BACKUP',
+            'OLD', 'NEW', 'ARCHIVE', 'ARCHIVED', 'UNSORTED', '未分類',
+            'OTHER', 'OTHERS', 'MISC', 'MISCELLANEOUS', '其他', '雜項',
+            'COLLECTION', 'COLLECTIONS', 'SERIES', '系列', '合集',
+            'FOLDER', 'FOLDERS', 'DIR', 'DIRECTORY', 'DATA',
+            'UNCENSORED', 'CENSORED', '無碼', '有碼', 'FC2', 'PPV',
+            'DELETED', 'TRASH', 'RECYCLE', '回收站', '垃圾桶'
+        }
+        
+        # 組合所有需要排除的資料夾
+        all_excluded = studio_folders | excluded_folders
+        
+        if folder_name_upper in all_excluded:
+            return False
+        
+        # 檢查是否已經在片商資料夾內（避免重複處理）
+        parent_name = folder_path.parent.name.upper()
+        if parent_name in studio_folders:
+            return False
+        
+        # 排除過短或過長的資料夾名稱（可能不是女優名稱）
+        if len(folder_name) < 2 or len(folder_name) > 30:
+            return False
+        
+        # 排除純數字資料夾名稱
+        if folder_name.isdigit():
+            return False
+        
+        # 排除看起來像番號的資料夾名稱
+        import re
+        if re.match(r'^[A-Z]{2,6}-?\d{3,5}[A-Z]?$', folder_name_upper):
             return False
         
         # 檢查資料夾內是否有影片檔案
         try:
+            video_count = 0
+            total_files = 0
+            
             for file_path in folder_path.iterdir():
-                if file_path.is_file() and file_path.suffix.lower() in self.supported_formats:
-                    return True
+                if file_path.is_file():
+                    total_files += 1
+                    if file_path.suffix.lower() in self.supported_formats:
+                        video_count += 1
+                        
+            # 必須至少有一個影片檔案，且影片檔案佔一定比例
+            if video_count >= 1 and (total_files <= 10 or video_count / total_files >= 0.3):
+                return True
+                
         except PermissionError:
             return False
         
         return False
 
     def _update_actress_statistics(self, actress_folders: List[Path], progress_callback=None) -> Dict[str, Dict]:
-        """重新掃描女優資料夾並更新片商統計"""
+        """重新掃描女優資料夾並更新片商統計（使用增強版資料庫分析）"""
         updated_stats = {}
         
         if progress_callback:
-            progress_callback("📊 正在重新統計女優片商分佈...\n")
+            progress_callback("📊 正在使用增強版演算法分析女優片商分佈...\n")
         
         for i, actress_folder in enumerate(actress_folders, 1):
             actress_name = actress_folder.name
             
             try:
-                # 掃描該女優資料夾中的影片檔案
-                video_files = []
-                for file_path in actress_folder.iterdir():
-                    if file_path.is_file() and file_path.suffix.lower() in self.supported_formats:
-                        video_files.append(file_path)
+                # 使用資料庫的增強分析功能
+                analysis_result = self.db_manager.analyze_actress_primary_studio(actress_name)
                 
-                if not video_files:
-                    continue
-                
-                # 統計片商分佈
-                studio_stats = self._calculate_studio_distribution(video_files)
-                
-                if studio_stats:
-                    # 計算主要片商和信心度
-                    main_studio, confidence = self._determine_main_studio(studio_stats)
-                    
+                if analysis_result['total_videos'] > 0:
                     updated_stats[actress_name] = {
                         'folder_path': actress_folder,
-                        'studio_stats': studio_stats,
-                        'main_studio': main_studio,
-                        'confidence': confidence,
-                        'total_videos': len(video_files)
+                        'studio_stats': analysis_result['studio_distribution'],
+                        'main_studio': analysis_result['primary_studio'],
+                        'confidence': analysis_result['confidence'],
+                        'total_videos': analysis_result['total_videos'],
+                        'recommendation': analysis_result['recommendation'],
+                        'analysis_method': 'enhanced_database'
                     }
                     
-                    if progress_callback and i % 10 == 0:
-                        progress_callback(f"   處理進度: {i}/{len(actress_folders)}\n")
+                    if progress_callback and i % 5 == 0:
+                        progress_callback(f"   處理進度: {i}/{len(actress_folders)} ({actress_name}: {analysis_result['primary_studio']} {analysis_result['confidence']}%)\n")
+                
+                else:
+                    # 如果資料庫沒有資料，回退到檔案掃描方式
+                    video_files = []
+                    for file_path in actress_folder.iterdir():
+                        if file_path.is_file() and file_path.suffix.lower() in self.supported_formats:
+                            video_files.append(file_path)
+                    
+                    if video_files:
+                        # 使用檔案掃描方式作為備援
+                        studio_stats = self._calculate_studio_distribution(video_files)
+                        if studio_stats:
+                            main_studio, confidence = self._determine_main_studio(studio_stats)
+                            updated_stats[actress_name] = {
+                                'folder_path': actress_folder,
+                                'studio_stats': studio_stats,
+                                'main_studio': main_studio,
+                                'confidence': confidence,
+                                'total_videos': len(video_files),
+                                'recommendation': 'studio_classification' if confidence >= 60 else 'solo_artist',
+                                'analysis_method': 'file_scan_fallback'
+                            }
                 
             except Exception as e:
                 self.logger.error(f"處理女優 {actress_name} 時發生錯誤: {e}")
                 continue
         
         if progress_callback:
-            progress_callback(f"✅ 完成統計更新，處理了 {len(updated_stats)} 位女優\n\n")
+            progress_callback(f"✅ 完成增強版統計分析，處理了 {len(updated_stats)} 位女優\n")
+            
+            # 顯示統計摘要
+            studio_count = sum(1 for stats in updated_stats.values() if stats['recommendation'] == 'studio_classification')
+            solo_count = len(updated_stats) - studio_count
+            progress_callback(f"📊 分析結果預覽: {studio_count} 位歸屬特定片商, {solo_count} 位歸為單體企劃\n\n")
         
         return updated_stats
 
@@ -222,13 +284,41 @@ class StudioClassificationCore:
                         progress_callback(f"⏩ 跳過 {actress_name}: 來源不是目錄\n")
                     continue
                 
-                # 決定目標片商資料夾
-                if confidence >= confidence_threshold and main_studio != 'UNKNOWN':
+                # 安全檢查：確保來源資料夾在根目錄的第一層
+                if source_folder.parent != root_folder:
+                    move_stats['skipped'] += 1
+                    self.logger.warning(f"來源資料夾不在根目錄第一層，跳過: {source_folder}")
+                    if progress_callback:
+                        progress_callback(f"⏩ 跳過 {actress_name}: 不在根目錄第一層\n")
+                    continue
+                
+                # 安全檢查：確保這是真的女優資料夾
+                if not self._is_actress_folder(source_folder):
+                    move_stats['skipped'] += 1
+                    self.logger.warning(f"重新檢查發現不是女優資料夾，跳過: {source_folder}")
+                    if progress_callback:
+                        progress_callback(f"⏩ 跳過 {actress_name}: 重新檢查後不符合女優資料夾條件\n")
+                    continue
+                
+                # 決定目標片商資料夾（使用增強版推薦系統）
+                recommendation = stats.get('recommendation', 'solo_artist')
+                
+                if (recommendation == 'studio_classification' and 
+                    confidence >= confidence_threshold and 
+                    main_studio != 'UNKNOWN'):
                     target_studio_folder = root_folder / main_studio
                     category = 'studio'
                 else:
                     target_studio_folder = root_folder / solo_folder_name
                     category = 'solo'
+                
+                # 安全檢查：避免移動到自己或循環移動
+                target_actress_folder = target_studio_folder / actress_name
+                if source_folder == target_studio_folder or target_actress_folder == source_folder:
+                    move_stats['skipped'] += 1
+                    if progress_callback:
+                        progress_callback(f"⏩ 跳過 {actress_name}: 避免循環移動\n")
+                    continue
                 
                 # 建立目標片商資料夾
                 try:
@@ -239,9 +329,6 @@ class StudioClassificationCore:
                     if progress_callback:
                         progress_callback(f"❌ {actress_name}: 無法建立目標資料夾 - {str(e)}\n")
                     continue
-                
-                # 目標女優資料夾路徑
-                target_actress_folder = target_studio_folder / actress_name
                 
                 # 檢查是否已存在
                 if target_actress_folder.exists():

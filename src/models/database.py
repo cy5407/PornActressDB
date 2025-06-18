@@ -46,10 +46,12 @@ class SQLiteDBManager:
             # 建立女優資料表
             cursor.execute('CREATE TABLE IF NOT EXISTS actresses (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE)')
             
-            # 建立影片與女優關聯表
+            # 建立影片與女優關聯表（增強版 - 包含檔案關聯類型）
             cursor.execute('''CREATE TABLE IF NOT EXISTS video_actress_link (
                 video_id INTEGER, 
                 actress_id INTEGER, 
+                file_association_type TEXT DEFAULT 'primary',  -- 檔案關聯類型: primary, secondary, collaboration
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (video_id, actress_id), 
                 FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE, 
                 FOREIGN KEY (actress_id) REFERENCES actresses(id) ON DELETE CASCADE
@@ -78,6 +80,26 @@ class SQLiteDBManager:
             
             if 'studio_code' in current_columns:
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_studio_code ON videos(studio_code)')
+            
+            # 檢查並升級 video_actress_link 表結構
+            cursor.execute("PRAGMA table_info(video_actress_link)")
+            link_columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'file_association_type' not in link_columns:
+                logger.info("升級 video_actress_link 表，添加 file_association_type 欄位...")
+                cursor.execute('ALTER TABLE video_actress_link ADD COLUMN file_association_type TEXT DEFAULT "primary"')
+                
+            if 'created_date' not in link_columns:
+                logger.info("升級 video_actress_link 表，添加 created_date 欄位...")
+                # SQLite 不支援 ALTER TABLE 時使用 CURRENT_TIMESTAMP 預設值
+                # 先添加欄位為 NULL，然後更新現有記錄
+                cursor.execute('ALTER TABLE video_actress_link ADD COLUMN created_date TIMESTAMP')
+                # 為現有記錄設定預設時間戳
+                cursor.execute('UPDATE video_actress_link SET created_date = CURRENT_TIMESTAMP WHERE created_date IS NULL')
+            
+            # 建立新的索引以提升查詢效能
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_link_association_type ON video_actress_link(file_association_type)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_link_created_date ON video_actress_link(created_date)')
             
             conn.commit()
     
@@ -126,8 +148,19 @@ class SQLiteDBManager:
                     
             cursor.execute("DELETE FROM video_actress_link WHERE video_id = ?", (video_id,))
             if actress_ids:
-                link_data = [(video_id, actress_id) for actress_id in actress_ids]
-                cursor.executemany("INSERT OR IGNORE INTO video_actress_link (video_id, actress_id) VALUES (?, ?)", link_data)
+                # 決定檔案關聯類型
+                for i, actress_id in enumerate(actress_ids):
+                    if len(actress_ids) == 1:
+                        association_type = 'primary'  # 單人作品
+                    elif i == 0:
+                        association_type = 'primary'  # 主要女優（第一位）
+                    else:
+                        association_type = 'collaboration'  # 共演女優
+                    
+                    cursor.execute("""INSERT OR IGNORE INTO video_actress_link 
+                                    (video_id, actress_id, file_association_type, created_date) 
+                                    VALUES (?, ?, ?, ?)""", 
+                                 (video_id, actress_id, association_type, datetime.now()))
             
             conn.commit()
             
@@ -217,3 +250,148 @@ class SQLiteDBManager:
                 }
                 for row in cursor.fetchall()
             ]
+
+    def get_enhanced_actress_studio_statistics(self, actress_name: str = None) -> List[Dict]:
+        """取得增強版女優片商統計資訊（包含檔案關聯類型分析）"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            base_query = """
+                SELECT 
+                    a.name as actress_name,
+                    v.studio,
+                    v.studio_code,
+                    va.file_association_type,
+                    COUNT(*) as video_count,
+                    GROUP_CONCAT(v.code) as video_codes,
+                    MIN(va.created_date) as first_appearance,
+                    MAX(va.created_date) as latest_appearance
+                FROM actresses a
+                JOIN video_actress_link va ON a.id = va.actress_id
+                JOIN videos v ON va.video_id = v.id
+                WHERE v.studio IS NOT NULL AND v.studio != 'UNKNOWN'
+            """
+            
+            if actress_name:
+                base_query += " AND a.name = ?"
+                cursor.execute(base_query + " GROUP BY a.name, v.studio, v.studio_code, va.file_association_type ORDER BY video_count DESC", (actress_name,))
+            else:
+                cursor.execute(base_query + " GROUP BY a.name, v.studio, v.studio_code, va.file_association_type ORDER BY a.name, video_count DESC")
+            
+            return [
+                {
+                    'actress_name': row[0],
+                    'studio': row[1],
+                    'studio_code': row[2],
+                    'association_type': row[3],
+                    'video_count': row[4],
+                    'video_codes': row[5].split(',') if row[5] else [],
+                    'first_appearance': row[6],
+                    'latest_appearance': row[7]
+                }
+                for row in cursor.fetchall()
+            ]
+
+    def analyze_actress_primary_studio(self, actress_name: str) -> Dict:
+        """分析女優的主要片商（基於檔案關聯類型和番號統計）"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 獲取該女優的詳細片商統計
+            cursor.execute("""
+                SELECT 
+                    v.studio,
+                    v.studio_code,
+                    va.file_association_type,
+                    COUNT(*) as video_count,
+                    GROUP_CONCAT(v.code) as codes
+                FROM actresses a
+                JOIN video_actress_link va ON a.id = va.actress_id
+                JOIN videos v ON va.video_id = v.id
+                WHERE a.name = ? AND v.studio IS NOT NULL AND v.studio != 'UNKNOWN'
+                GROUP BY v.studio, v.studio_code, va.file_association_type
+                ORDER BY video_count DESC
+            """, (actress_name,))
+            
+            studio_stats = {}
+            total_videos = 0
+            
+            for row in cursor.fetchall():
+                studio, studio_code, association_type, count, codes = row
+                total_videos += count
+                
+                if studio not in studio_stats:
+                    studio_stats[studio] = {
+                        'studio_code': studio_code,
+                        'primary_count': 0,
+                        'collaboration_count': 0,
+                        'total_count': 0,
+                        'codes': []
+                    }
+                
+                studio_stats[studio]['total_count'] += count
+                studio_stats[studio]['codes'].extend(codes.split(',') if codes else [])
+                
+                if association_type == 'primary':
+                    studio_stats[studio]['primary_count'] += count
+                elif association_type == 'collaboration':
+                    studio_stats[studio]['collaboration_count'] += count
+            
+            # 計算主要片商
+            if not studio_stats:
+                return {
+                    'actress_name': actress_name,
+                    'primary_studio': 'UNKNOWN',
+                    'confidence': 0.0,
+                    'total_videos': 0,
+                    'studio_distribution': {},
+                    'recommendation': 'solo_artist'
+                }
+            
+            # 優先考慮 primary 作品較多的片商
+            best_studio = None
+            best_score = 0
+            
+            for studio, stats in studio_stats.items():
+                # 計算綜合評分：primary作品權重更高
+                primary_weight = 3.0  # primary 作品權重
+                collaboration_weight = 1.0  # collaboration 作品權重
+                
+                weighted_score = (stats['primary_count'] * primary_weight + 
+                                stats['collaboration_count'] * collaboration_weight)
+                
+                if weighted_score > best_score:
+                    best_score = weighted_score
+                    best_studio = studio
+            
+            # 計算信心度
+            if best_studio and total_videos > 0:
+                best_stats = studio_stats[best_studio]
+                confidence = (best_stats['total_count'] / total_videos) * 100
+                
+                # 如果主要作品比例很高，提升信心度
+                if total_videos > 0:
+                    primary_ratio = best_stats['primary_count'] / total_videos
+                    if primary_ratio > 0.7:  # 70%以上是主要作品
+                        confidence = min(confidence * 1.2, 100)  # 提升20%信心度
+            else:
+                confidence = 0
+            
+            # 決定推薦分類
+            if confidence >= 60 and total_videos >= 3:
+                recommendation = 'studio_classification'
+            elif len(studio_stats) > 3:  # 片商太分散
+                recommendation = 'solo_artist'
+            elif total_videos < 2:  # 作品太少
+                recommendation = 'solo_artist'
+            else:
+                recommendation = 'solo_artist'
+            
+            return {
+                'actress_name': actress_name,
+                'primary_studio': best_studio or 'UNKNOWN',
+                'confidence': round(confidence, 1),
+                'total_videos': total_videos,
+                'studio_distribution': studio_stats,
+                'recommendation': recommendation
+            }

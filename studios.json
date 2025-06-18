@@ -6,7 +6,8 @@
     "SONE",
     "ONEZ",
     "OFJE"
-  ],  "MOODYZ": [
+  ],
+  "MOODYZ": [
     "MIRD",
     "MIDD",
     "MIDV",
@@ -14,7 +15,8 @@
     "MIAB",
     "MIAE",
     "MIAD",
-    "MIFD"
+    "MIFD",
+    "MIBB"
   ],
   "PREMIUM": [
     "IPX",
@@ -22,10 +24,8 @@
     "IPZZ",
     "IDEA",
     "IPN",
-    "IDEAPOCKET"
-  ],
-  "WANZ": [
-    "WANZ"
+    "IDEAPOCKET",
+    "PRED"
   ],
   "FALENO": [
     "FSDSS",
@@ -58,14 +58,16 @@
     "JUL",
     "JUX",
     "JUC",
-    "JUKD"
+    "JUKD",
+    "JUR"
   ],
   "PRESTIGE": [
     "ABW",
     "ABP",
     "ABS",
     "BGN",
-    "CHN"
+    "CHN",
+    "ABF"
   ],
   "SOD": [
     "SDJS",
@@ -82,56 +84,8 @@
     "START",
     "STARS",
     "STAR",
-    "SACE"
-  ],
-  "Das!": [
-    "DASS",
-    "DASD"
-  ],
-  "Tameike_Goro": [
-    "MEYD",
-    "MDYD"
-  ],
-  "Honnaka": [
-    "HMN",
-    "HNVR"
-  ],
-  "BIBIAN": [
-    "BBAN"
-  ],
-  "ROOKIE": [
-    "ROYD"
-  ],
-  "NATURAL_HIGH": [
-    "NHDTA",
-    "NHDT"
-  ],
-  "KMPVR": [
-    "KMVR"
-  ],
-  "MAXING": [
-    "MXSPS"
-  ],
-  "OFFICE_K": [
-    "OFKU"
-  ],
-  "CRYSTAL_EIZO": [
-    "CRDD",
-    "EKDV"
-  ],
-  "WAAP": [
-    "WA",
-    "WAAP"
-  ],
-  "TMA": [
-    "TMA"
-  ],
-  "OPPAI": [
-    "PPPD",
-    "PPSD"
-  ],
-  "KM_Produce": [
-    "KMI",
-    "KMHR"
+    "SACE",
+    "SDMUA",
+    "HJMO"
   ]
 }

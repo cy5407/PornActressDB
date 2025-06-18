@@ -40,16 +40,26 @@ class InteractiveClassifier:
     def _show_gui_choice_dialog(self, code: str, actresses: List[str]) -> Tuple[str, bool]:
         """顯示 GUI 選擇對話框"""
         
+        logger.info(f"🎬 顯示互動式對話框 - 番號: {code}, 女優: {actresses}")
         result = {'choice': None, 'remember': False}
         
         dialog = tk.Toplevel(self.gui_parent)
         dialog.title(f"選擇分類偏好 - {code}")
-        dialog.geometry("450x400")
+        dialog.geometry("500x450")
         dialog.resizable(False, False)
         
-        # 置中顯示
+        # 確保對話框在最前面並獲得焦點
         dialog.transient(self.gui_parent)
         dialog.grab_set()
+        dialog.focus_set()
+        dialog.lift()
+        dialog.attributes('-topmost', True)
+        
+        # 置中顯示對話框
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (500 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (450 // 2)
+        dialog.geometry(f"500x450+{x}+{y}")
         
         # 標題
         title_frame = ttk.Frame(dialog)
@@ -91,19 +101,43 @@ class InteractiveClassifier:
         
         def confirm_choice():
             choice = selected_actress.get()
+            logger.info(f"使用者選擇: {choice}")
             if choice:
                 result['choice'] = choice
                 result['remember'] = remember_var.get()
+                logger.info(f"記住偏好: {result['remember']}")
                 dialog.destroy()
+            else:
+                # 如果沒有選擇，提醒使用者
+                from tkinter import messagebox
+                messagebox.showwarning("請選擇", "請先選擇一個女優或選項！")
         
         def skip_all():
             result['choice'] = "SKIP_ALL"
             result['remember'] = False
+            logger.info("使用者選擇跳過所有")
             dialog.destroy()
         
-        ttk.Button(button_frame, text="✅ 確認選擇", command=confirm_choice).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="⏭️ 全部跳過", command=skip_all).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="❌ 取消", command=dialog.destroy).pack(side="left", padx=5)
+        def cancel_choice():
+            result['choice'] = "SKIP"
+            result['remember'] = False
+            logger.info("使用者取消選擇")
+            dialog.destroy()
+        
+        # 按鈕佈局改進
+        confirm_btn = ttk.Button(button_frame, text="✅ 確認選擇", command=confirm_choice)
+        confirm_btn.pack(side="left", padx=5, ipadx=10, ipady=3)
+        
+        skip_all_btn = ttk.Button(button_frame, text="⏭️ 全部跳過", command=skip_all)
+        skip_all_btn.pack(side="left", padx=5, ipadx=10, ipady=3)
+        
+        cancel_btn = ttk.Button(button_frame, text="❌ 取消", command=cancel_choice)
+        cancel_btn.pack(side="left", padx=5, ipadx=10, ipady=3)
+        
+        # 設置預設按鈕和鍵盤快捷鍵
+        confirm_btn.focus_set()
+        dialog.bind('<Return>', lambda e: confirm_choice())
+        dialog.bind('<Escape>', lambda e: cancel_choice())
         
         # 等待使用者選擇
         dialog.wait_window()
