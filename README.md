@@ -1,162 +1,221 @@
-# 女優分類系統 v5.1
+# 女優分類系統 - 智慧影片管理工具
 
-一個功能完整的女優分類與管理系統，支援互動式分類、片商分類、檔案整理等功能。
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/Status-Active-success.svg)]()
+
+一個功能完整的智慧影片分類管理系統，支援自動女優識別、片商分類、多源搜尋與資料庫管理。
 
 ## ✨ 主要功能
 
-### 🔍 掃描與搜尋
-- 自動掃描影片檔案並建立資料庫
-- 智慧提取影片編號
-- **智慧過濾功能**：自動跳過 FC2、FC2PPV、PPV 等相關檔案，避免無效搜尋
-- **增強版網路搜尋女優資訊（v5.1 新功能）**
-  - 同步搜尋並儲存片商資訊（片商名稱、片商代碼）
-  - 自動提取發行日期資訊
-  - 支援多種片商代碼映射關係
-  - 建立完整的影片、女優與片商關聯資料庫
-- 建立完整的影片與女優關聯資料庫
+### 🔍 智慧搜尋系統
+- **多源搜尋**: 支援 AV-WIKI 和 chiba-f.net 雙重搜尋引擎
+- **自動回退**: 主要搜尋失敗時自動切換備用源
+- **片商資訊同步**: 搜尋時自動提取並儲存片商資訊
+- **智慧過濾**: 自動過濾 FC2/PPV 檔案，避免無效搜尋
 
-### 🤝 互動式分類
-- 多女優共演時提供選擇對話框
-- 支援個人偏好設定與記憶
-- 自動標籤檔名（標記所有參演女優）
-- 智慧分類建議
+### 🗂️ 分類管理
+- **女優分類**: 根據檔案名稱自動識別女優並分類
+- **片商分類**: 基於信心度的智慧片商分類系統
+- **互動模式**: 支援手動確認和自動分類模式
+- **路徑管理**: 安全的檔案移動與重新組織
 
-### 📁 標準分類
-- 使用第一位女優進行快速分類
-- 批次檔案移動
-- 自動建立女優資料夾
+### 💾 資料庫系統
+- **SQLite 支援**: 輕量級本地資料庫
+- **自動升級**: 資料庫結構自動升級機制
+- **備份管理**: 自動備份與恢復功能
+- **統計分析**: 完整的女優與片商統計資訊
 
-### 🏢 片商分類（新功能）
-- 分析女優的片商分佈統計
-- 依信心度自動歸類到片商資料夾
-- 可自訂分類規則與門檻
-- 支援備份與復原
+### 🎨 使用者界面
+- **現代化 GUI**: 基於 tkinter 的直觀界面
+- **即時進度**: 詳細的處理進度與狀態顯示
+- **偏好設定**: 可客製化的使用者偏好
+- **錯誤處理**: 完善的錯誤提示與處理機制
 
-### ⚙️ 偏好設定
-- 最愛女優與優先女優設定
-- 共演記錄管理
-- 片商分類規則設定
-- 檔案命名選項設定
+## 🚀 快速開始
 
-## 安裝說明
-
-### 環境需求
-- Python 3.8 或以上版本
-- [其他相依套件]
+### 系統需求
+- Python 3.8 或更高版本
+- Windows 10/11 (主要測試平台)
+- 網路連接 (用於線上搜尋功能)
 
 ### 安裝步驟
+
+1. **複製專案**
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/actress-classifier.git
+   cd actress-classifier
+   ```
+
+2. **建立虛擬環境**
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate  # Windows
+   ```
+
+3. **安裝相依套件**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **啟動程式**
+   ```bash
+   python run.py
+   ```
+
+### 首次使用
+
+1. 程式會自動建立資料庫檔案於 `Documents/ActressClassifier/`
+2. 可透過「偏好設定」調整分類參數
+3. 建議先使用小量檔案測試功能
+
+## 📋 功能說明
+
+### 女優分類流程
+1. 選擇包含影片檔案的資料夾
+2. 系統自動掃描並識別檔案名稱中的女優資訊
+3. 可選擇自動分類或互動式確認模式
+4. 系統建立女優資料夾並移動對應檔案
+
+### 片商分類流程
+1. 分析女優資料夾中的影片檔案
+2. 提取番號並識別對應片商
+3. 計算片商信心度（基於影片數量比例）
+4. 根據信心度閾值決定分類策略
+
+### 搜尋功能
+- **線上搜尋**: 從網路資料庫獲取女優資訊
+- **離線模式**: 使用本地快取資料
+- **批次處理**: 支援大量檔案的批次搜尋
+- **結果儲存**: 搜尋結果自動儲存到資料庫
+
+## 🛠️ 技術架構
+
+### 專案結構
+```
+src/
+├── models/              # 資料模型層
+│   ├── config.py           # 設定管理
+│   ├── database.py         # 資料庫操作
+│   ├── extractor.py        # 檔案名稱解析
+│   └── studio.py           # 片商識別
+├── services/            # 業務邏輯層
+│   ├── classifier_core.py      # 分類核心
+│   ├── interactive_classifier.py # 互動分類
+│   ├── studio_classifier.py    # 片商分類
+│   └── web_searcher.py         # 網路搜尋
+├── ui/                 # 使用者界面層
+│   ├── main_gui.py         # 主要界面
+│   └── preferences_dialog.py # 偏好設定
+└── utils/              # 工具模組
+    └── scanner.py          # 檔案掃描
+```
+
+### 核心技術
+- **Python 3.8+**: 主要開發語言
+- **tkinter**: GUI 框架
+- **SQLite**: 資料庫系統
+- **httpx/requests**: HTTP 客戶端
+- **BeautifulSoup**: HTML 解析
+- **pathlib**: 現代化路徑處理
+
+## 🔧 設定說明
+
+### 資料庫設定
+```ini
+[database]
+database_path = C:\Users\{USERNAME}\Documents\ActressClassifier\actress_database.db
+```
+
+### 搜尋設定
+```ini
+[search]
+batch_size = 10
+thread_count = 5
+batch_delay = 2.0
+request_timeout = 20
+```
+
+### 分類設定
+```ini
+[classification]
+mode = interactive
+auto_apply_preferences = true
+```
+
+## 🧪 測試
+
+### 執行測試套件
 ```bash
-# 1. 複製專案
-git clone [repository-url]
-cd 女優分類
+# 檢查資料庫狀態
+python check_database.py
 
-# 2. 建立虛擬環境
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# 或
-venv\Scripts\activate     # Windows
+# FC2/PPV 過濾測試
+python test_fc2_filter.py
 
-# 3. 安裝相依套件
-pip install -r requirements.txt
-
-# 4. 設定環境變數
-cp .env.example .env
-# 編輯 .env 檔案填入必要的設定
-
-# 5. 執行資料庫遷移（如適用）
-python manage.py migrate
-
-# 6. 啟動服務
-python main.py
+# 搜尋功能測試
+python test_enhanced_search.py
 ```
 
-## 使用說明
-[填寫如何使用這個專案]
-
-## 開發指南
-
-### 目錄結構
-```
-女優分類/
-├── src/                    # 主要程式碼
-├── tests/                  # 測試程式
-├── .ai-playground/         # AI 實驗區
-├── docs/                   # 專案文件
-├── config/                 # 設定檔案
-├── scripts/                # 工具腳本
-└── 專案管理/               # 業務文件
-```
-
-### 開發流程
-1. 建立功能分支：`git checkout -b feature/功能名稱`
-2. 開發功能並撰寫測試
-3. 執行測試：`pytest tests/`
-4. 提交變更：遵循 commit message 規範
-5. 建立 Pull Request
-
-### AI Agent 使用規範
-- 實驗性程式碼放在 `.ai-playground/experiments/`
-- 功能驗證檔案放在 `.ai-playground/validations/`
-- 完成驗證後移動到 `.ai-playground/archived/`
-- 檔案命名使用時間戳記格式
-
-### 測試
+### 驗證腳本
 ```bash
-# 執行所有測試
-pytest tests/
+# Chiba-f.net 整合測試
+python .ai-playground/validations/test_chiba_f_net.py
 
-# 執行特定測試
-pytest tests/test_specific.py
-
-# 生成測試覆蓋率報告
-pytest --cov=src tests/
+# 整合搜尋測試
+python .ai-playground/validations/test_integrated_search.py
 ```
 
-## API 文件
-[如果是 API 專案，提供 API 文件連結或說明]
+## 📚 文件
 
-## 部署說明
-[填寫部署相關資訊]
+- [專案計畫書](專案管理/專案計畫/專案計畫書_v1.0.md)
+- [需求規格書](專案管理/需求規格/需求規格書_v1.0.md)
+- [資料庫配置指南](docs/database_guide.md)
+- [24小時更新報告](專案管理/進度報告/24小時功能更新整合報告_20250618.md)
 
-## 貢獻指南
-1. Fork 這個專案
-2. 建立您的功能分支
-3. 提交您的變更
-4. 推送到分支
-5. 建立 Pull Request
+## 🐛 問題回報
 
-## 版本歷史
-- v1.0.0 - 初始版本 (2025-06-17)
+如遇到問題，請提供以下資訊：
+1. 錯誤訊息的完整內容
+2. 作業系統版本
+3. Python 版本
+4. 重現步驟
 
-## 授權條款
-[填寫授權資訊]
+## 🤝 貢獻指南
 
-## 聯絡資訊
-- 專案維護者: [您的名字]
-- Email: [您的 Email]
-- 專案網址: [專案網址]
+1. Fork 此專案
+2. 建立功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交變更 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 開啟 Pull Request
 
-## 致謝
-感謝所有為這個專案做出貢獻的人員。
+## 📈 版本歷史
 
-## 疑難排解
-### 常見問題
-Q: [問題描述]
-A: [解答]
+### v5.2 (2025-06-18)
+- 🚀 完整系統模組化重構
+- 🔍 多源搜尋引擎整合
+- 🛡️ FC2/PPV 智慧過濾
+- 🔧 穩定性大幅提升
 
-### 取得協助
-如果遇到問題，請：
-1. 查看 [FAQ](docs/faq.md)
-2. 搜尋現有的 [Issues](issues)
-3. 建立新的 Issue 描述問題
+### v5.1 (2025-06-18)
+- 🎯 搜尋功能增強
+- 💾 資料庫結構擴充
+- 🧪 測試套件建立
 
-## 2025-06-18 優化更新
+### v5.0 (2025-06-17)
+- 🏗️ 系統架構重構
+- 📋 專案管理體系建立
 
-### FC2/PPV 檔案自動過濾
-- 增強 `UnifiedCodeExtractor` 的過濾功能
-- 自動跳過 FC2、FC2PPV、PPV 相關檔案，避免無效搜尋
-- 支援的過濾模式：
-  - `FC2-`, `FC2_`, `FC2PPV-`, `FC2PPV_`
-  - `PPV-`, `PPV_`, `PPV` 後直接接數字
-  - `FC2-PPV`, `FC2_PPV` 等變體
-- 大幅減少無效的網路請求，提升執行效率
+## 📄 授權
+
+此專案採用 MIT 授權條款 - 詳見 [LICENSE](LICENSE) 檔案
+
+## 🙏 致謝
+
+- 感謝所有使用者的回饋與建議
+- 感謝開源社群提供的工具與函式庫
+- 特別感謝 AI 輔助開發工具的支援
+
+---
+
+**注意**: 此工具僅供個人使用，請遵守相關法律法規與版權規定。
