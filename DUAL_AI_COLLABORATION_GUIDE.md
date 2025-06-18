@@ -99,19 +99,29 @@
 ```json
 [
   {
-    "key": "ctrl+shift+c",
-    "command": "claude.chat.open",
-    "when": "editorTextFocus"
+    "key": "ctrl+alt+p",
+    "command": "workbench.panel.chat.view.copilot.focus",
+    "when": "!chatSessionRequestInProgress"
   },
   {
-    "key": "ctrl+shift+g", 
+    "key": "ctrl+shift+space",
     "command": "github.copilot.generate",
     "when": "editorTextFocus"
   },
   {
-    "key": "ctrl+shift+d",
+    "key": "ctrl+shift+/",
     "command": "github.copilot.generateDocs", 
     "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+alt+c",
+    "command": "workbench.action.chat.open",
+    "when": "!chatSessionRequestInProgress"
+  },
+  {
+    "key": "ctrl+alt+enter",
+    "command": "inlineChat.start",
+    "when": "editorFocus"
   }
 ]
 ```
@@ -305,5 +315,21 @@ Claude Code Only: 80% 時間
 1. 應用到大型專案
 2. 建立標準作業程序
 3. 持續最佳化流程
+
+## 🎮 修正後的快捷鍵說明
+
+**重要**: 原本的 `Ctrl+Shift+C` 與 Windows 系統快捷鍵衝突，已修正為：
+
+### 新的快捷鍵配置
+- **Ctrl+Alt+P** → 開啟 GitHub Copilot 面板
+- **Ctrl+Alt+C** → 開啟 Claude Code 聊天
+- **Ctrl+Shift+Space** → GitHub Copilot 生成程式碼
+- **Ctrl+Shift+/** → GitHub Copilot 生成註釋
+- **Ctrl+Alt+Enter** → 啟動內聯聊天 (Inline Chat)
+
+### 使用方式
+1. **重新啟動 VS Code** 載入新的快捷鍵設定
+2. **測試快捷鍵** 確認功能正常
+3. **如果仍有衝突** 可以在 VS Code 中按 `Ctrl+K Ctrl+S` 打開快捷鍵設定手動調整
 
 **這個雙 AI 協作策略能讓你的開發效率最大化，同時最佳化成本！** 🎯
