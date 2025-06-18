@@ -1,17 +1,17 @@
 [
   {
     "key": "ctrl+alt+p",
-    "command": "workbench.panel.chat.view.copilot.focus",
+    "command": "github.copilot.chat.focus",
     "when": "!chatSessionRequestInProgress"
   },
   {
     "key": "ctrl+shift+space",
-    "command": "github.copilot.generate",
-    "when": "editorTextFocus"
+    "command": "editor.action.inlineSuggest.trigger",
+    "when": "editorTextFocus && !editorReadonly"
   },
   {
     "key": "ctrl+shift+/",
-    "command": "github.copilot.generateDocs",
+    "command": "github.copilot.chat.insertCodeBlock",
     "when": "editorTextFocus"
   },
   {
@@ -33,5 +33,10 @@
     "key": "ctrl+alt+g",
     "command": "git.commitStaged",
     "when": "gitOpenRepositoryCount != 0"
+  },
+  {
+    "key": "ctrl+i",
+    "command": "github.copilot.interactiveEditor.explain",
+    "when": "editorTextFocus"
   }
 ]

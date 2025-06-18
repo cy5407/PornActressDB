@@ -11,10 +11,10 @@
     "README.md": "*.md"
   },
   "python.defaultInterpreterPath": "./venv/bin/python",
-  "python.testing.pytestEnabled": true,
-  "python.testing.pytestArgs": [
+  "python.testing.pytestEnabled": true,  "python.testing.pytestArgs": [
     "tests/"
-  ],  // === GitHub Copilot 設定 (專責註釋與文件) ===
+  ],
+  // === GitHub Copilot 設定 (專責註釋與文件) ===
   "github.copilot.enable": {
     "*": true,
     "plaintext": false,
