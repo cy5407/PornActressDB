@@ -14,20 +14,27 @@
   "python.testing.pytestEnabled": true,
   "python.testing.pytestArgs": [
     "tests/"
-  ],
-  "github.copilot.enable": true,
+  ],  // === GitHub Copilot 設定 (專責註釋與文件) ===
+  "github.copilot.enable": {
+    "*": true,
+    "plaintext": false,
+    "markdown": true,
+    "scminput": false
+  },
   "github.copilot.editor.enableCodeActions": true,
   "github.copilot.renameSuggestions.triggerAutomatically": true,
-  "window.commandCenter": true,
-  "chat.commandCenter.enabled": true,
-  "workbench.commandPalette.experimental.askChatLocation": "chatView",
   "github.copilot.chat.search.semanticTextResults": true,
   "github.copilot.nextEditSuggestions.enabled": true,
-  "editor.inlineSuggest.edits.showCollapsed": true,
   "github.copilot.chat.followUps": "firstOnly",
   "github.copilot.chat.localeOverride": "zh-TW",
   "github.copilot.chat.useProjectTemplates": true,
   "github.copilot.chat.scopeSelection": true,
+  
+  // === Claude Code 協作設定 ===
+  "window.commandCenter": true,
+  "chat.commandCenter.enabled": true,
+  "workbench.commandPalette.experimental.askChatLocation": "chatView",
+  "editor.inlineSuggest.edits.showCollapsed": true,
   "chat.detectParticipant.enabled": false,
   "chat.promptFiles": true,
   "chat.promptFilesLocations": {
@@ -47,5 +54,47 @@
   "accessibility.voice.autoSynthesize": "off",
   "accessibility.voice.keywordActivation": "off",
   "accessibility.voice.speechTimeout": 5000,
-  "accessibility.voice.ignoreCodeBlocks": true
+  "accessibility.voice.ignoreCodeBlocks": true,
+
+  // === 雙 AI 協作增強設定 ===
+  "editor.inlineSuggest.enabled": true,
+  "editor.quickSuggestions": {
+    "other": true,
+    "comments": true,
+    "strings": true
+  },
+  "editor.suggest.snippetsPreventQuickSuggestions": false,
+  "editor.tabCompletion": "on",
+  "editor.wordBasedSuggestions": "matchingDocuments",
+  
+  // === Git 協作流程設定 ===
+  "git.enableSmartCommit": true,
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.defaultCloneDirectory": "../",
+  
+  // === 任務標記系統 ===
+  "todo-tree.general.tags": [
+    "TODO", "FIXME", "CLAUDE", "COPILOT", "DONE"
+  ],
+  "todo-tree.highlights.customHighlight": {
+    "CLAUDE": {
+      "icon": "robot",
+      "type": "tag",
+      "foreground": "#4A90E2",
+      "background": "#E3F2FD"
+    },
+    "COPILOT": {
+      "icon": "github",
+      "type": "tag", 
+      "foreground": "#7B68EE",
+      "background": "#F3E5F5"
+    },
+    "DONE": {
+      "icon": "check",
+      "type": "tag",
+      "foreground": "#4CAF50",
+      "background": "#E8F5E8"
+    }
+  }
 }
