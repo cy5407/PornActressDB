@@ -11,8 +11,7 @@ from collections import defaultdict
 logger = logging.getLogger(__name__)
 
 
-class StudioClassificationCore:
-    """片商分類核心類別"""
+class StudioClassificationCore:    """片商分類核心類別"""
     
     def __init__(self, db_manager, code_extractor, studio_identifier, preference_manager):
         self.db_manager = db_manager
@@ -21,6 +20,7 @@ class StudioClassificationCore:
         self.preference_manager = preference_manager
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.supported_formats = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts', '.m2ts']
+        # 初始化大片商集合，用於例外處理邏輯
         self._major_studios = self._identify_major_studios()
 
     def classify_actresses_by_studio(self, root_path: str, progress_callback=None) -> Dict:

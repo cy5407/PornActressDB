@@ -292,7 +292,7 @@ class SQLiteDBManager:
                 for row in cursor.fetchall()
             ]
 
-    def analyze_actress_primary_studio(self, actress_name: str) -> Dict:
+    def analyze_actress_primary_studio(self, actress_name: str, major_studios: set = None) -> Dict:
         """分析女優的主要片商（基於檔案關聯類型和番號統計）"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -378,11 +378,14 @@ class SQLiteDBManager:
                 confidence = 0
             
             # 決定推薦分類
-            if confidence >= 60 and total_videos >= 3:
+            if total_videos <= 3 and major_studios and best_studio in major_studios:
                 recommendation = 'studio_classification'
-            elif len(studio_stats) > 3:  # 片商太分散
+                confidence = max(confidence, 70.0)
+            elif confidence >= 60 and total_videos >= 3:
+                recommendation = 'studio_classification'
+            elif len(studio_stats) > 3:
                 recommendation = 'solo_artist'
-            elif total_videos < 2:  # 作品太少
+            elif total_videos < 2:
                 recommendation = 'solo_artist'
             else:
                 recommendation = 'solo_artist'
