@@ -293,7 +293,11 @@ class SQLiteDBManager:
             ]
 
     def analyze_actress_primary_studio(self, actress_name: str, major_studios: set = None) -> Dict:
-        """分析女優的主要片商（基於檔案關聯類型和番號統計）"""
+        """
+        分析女優的主要片商（基於檔案關聯類型和番號統計）。
+        若影片數<=3且屬於大片商，推薦分類為片商。
+        major_studios: 傳入大片商集合以支援例外邏輯。
+        """
         with self._get_connection() as conn:
             cursor = conn.cursor()
             
@@ -378,6 +382,7 @@ class SQLiteDBManager:
                 confidence = 0
             
             # 決定推薦分類
+            # 大片商例外：影片數少但屬於大片商時，強制推薦片商分類，信心度提升
             if total_videos <= 3 and major_studios and best_studio in major_studios:
                 recommendation = 'studio_classification'
                 confidence = max(confidence, 70.0)

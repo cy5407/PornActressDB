@@ -21,7 +21,7 @@ class StudioClassificationCore:
         self.preference_manager = preference_manager
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.supported_formats = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts', '.m2ts']
-        self._major_studios = self._identify_major_studios()
+        self._major_studios = self._identify_major_studios()  # 初始化時建立大片商集合
 
     def classify_actresses_by_studio(self, root_path: str, progress_callback=None) -> Dict:
         """按片商分類女優資料夾的主要功能"""
@@ -149,7 +149,10 @@ class StudioClassificationCore:
         return False
 
     def _update_actress_statistics(self, actress_folders: List[Path], progress_callback=None) -> Dict[str, Dict]:
-        """重新掃描女優資料夾並更新片商統計（使用增強版資料庫分析）"""
+        """
+        重新掃描女優資料夾並更新片商統計（含大片商例外邏輯）。
+        若影片數<=3且屬於大片商，推薦分類為片商。
+        """
         updated_stats = {}
         
         if progress_callback:
@@ -188,7 +191,7 @@ class StudioClassificationCore:
                         studio_stats = self._calculate_studio_distribution(video_files)
                         if studio_stats:
                             main_studio, confidence = self._determine_main_studio(studio_stats)
-                            
+                            # 大片商例外：影片數少但屬於大片商時，強制推薦片商分類
                             if len(video_files) <= 3 and self._is_major_studio(main_studio):
                                 recommendation = 'studio_classification'
                             else:
@@ -234,19 +237,28 @@ class StudioClassificationCore:
         return dict(studio_stats)
 
     def _identify_major_studios(self) -> set:
+        """
+        識別所有定義為「大片商」的片商名稱集合。
+        條件：番號前綴數量>=3 或為 E-BODY、FALENO 特例
+        """
         major_studios = set()
         studio_patterns = self.studio_identifier.studio_patterns
-        
         for studio, prefixes in studio_patterns.items():
             if len(prefixes) >= 3 or studio in ['E-BODY', 'FALENO']:
                 major_studios.add(studio)
-        
         return major_studios
 
     def _is_major_studio(self, studio: str) -> bool:
+        """
+        判斷指定片商是否屬於「大片商」集合
+        """
         return studio in self._major_studios
 
     def _determine_main_studio(self, studio_stats: Dict[str, int]) -> Tuple[str, float]:
+        """
+        根據片商分佈決定主要片商及信心度。
+        若影片總數<=3且屬於大片商，信心度強制提升至70。
+        """
         if not studio_stats:
             return 'UNKNOWN', 0.0
         
@@ -259,6 +271,7 @@ class StudioClassificationCore:
         
         confidence = round((video_count / total_videos) * 100, 1)
         
+        # 大片商例外：影片數少但屬於大片商時，信心度提升
         if total_videos <= 3 and self._is_major_studio(studio_name):
             confidence = max(confidence, 70.0)
         
