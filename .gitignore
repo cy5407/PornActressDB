@@ -1,0 +1,55 @@
+# 忽略檔案和資料夾
+
+# Python 相關
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# 日誌檔案
+*.log
+unified_classifier.log
+
+# 快取檔案
+cache/
+*.cache
+
+# 資料庫檔案 (可選擇性忽略)
+*.db
+*.sqlite
+*.sqlite3
+
+# 設定檔案 (包含敏感資訊的)
+config_local.ini
+secrets.yaml
+
+# IDE 相關
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 暫存檔案
+*.tmp
+*.temp
+*.bak
+
+# 測試資料
+test_data/
+sample_videos/
+
+# 備份檔案
+backup/
+*.backup
