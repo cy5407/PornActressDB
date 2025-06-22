@@ -166,13 +166,140 @@ class UnifiedClassifierCore:
                         }
                         self.db_manager.add_or_update_video(code, info)
             return {
+                'status': 'success',                'total_files': len(video_files), 
+                'new_codes': len(new_code_file_map), 
+                'success': success_count
+            }
+        except Exception as e:
+            self.logger.error(f"搜尋過程中發生錯誤: {e}", exc_info=True)
+            return {'status': 'error', 'message': str(e)}
+
+    def process_and_search_japanese_sites(self, folder_path: str, stop_event: threading.Event, progress_callback=None):
+        """僅使用日文網站搜尋 (AV-WIKI 和 chiba-f.net)"""
+        try:
+            if progress_callback: 
+                progress_callback("🇯🇵 開始掃描資料夾 (日文網站搜尋模式)...\n")
+            video_files = self.file_scanner.scan_directory(folder_path)
+            if not video_files:
+                if progress_callback: 
+                    progress_callback("🤷 未發現任何影片檔案。\n")
+                return {'status': 'success', 'message': '未發現影片檔案'}
+            if progress_callback: 
+                progress_callback(f"📁 發現 {len(video_files)} 個影片檔案。\n")
+            
+            codes_in_db = {v['code'] for v in self.db_manager.get_all_videos()}
+            new_code_file_map = {}
+            for file_path in video_files:
+                code = self.code_extractor.extract_code(file_path.name)
+                if code and code not in codes_in_db:
+                    if code not in new_code_file_map: 
+                        new_code_file_map[code] = []
+                    new_code_file_map[code].append(file_path)
+            if progress_callback:
+                progress_callback(f"✅ 資料庫中已存在 {len(codes_in_db)} 個影片的番號記錄。\n")
+                progress_callback(f"🎯 需要透過日文網站搜尋 {len(new_code_file_map)} 個新番號。\n\n")
+            if not new_code_file_map:
+                if progress_callback: 
+                    progress_callback("🎉 所有影片都已在資料庫中！\n")
+                return {'status': 'success', 'message': '所有番號都已存在於資料庫中'}
+            
+            # 使用日文網站專用搜尋方法
+            search_results = self.web_searcher.batch_search(
+                list(new_code_file_map.keys()), 
+                self.web_searcher.search_japanese_sites, 
+                stop_event, 
+                progress_callback
+            )
+            success_count = 0
+            for code, result in search_results.items():
+                if result and result.get('actresses'):
+                    success_count += 1
+                    for file_path in new_code_file_map[code]:
+                        # 優先使用搜尋結果中的片商資訊，只有當搜尋結果沒有片商資訊時才使用本地識別
+                        studio = result.get('studio')
+                        if not studio or studio == 'UNKNOWN':
+                            studio = self.studio_identifier.identify_studio(code)
+                        
+                        info = {
+                            'actresses': result['actresses'], 
+                            'original_filename': file_path.name, 
+                            'file_path': str(file_path), 
+                            'studio': studio, 
+                            'search_method': result.get('source', '日文網站')
+                        }
+                        self.db_manager.add_or_update_video(code, info)
+            return {
                 'status': 'success', 
                 'total_files': len(video_files), 
                 'new_codes': len(new_code_file_map), 
                 'success': success_count
             }
         except Exception as e:
-            self.logger.error(f"搜尋過程中發生錯誤: {e}", exc_info=True)
+            self.logger.error(f"日文網站搜尋過程中發生錯誤: {e}", exc_info=True)
+            return {'status': 'error', 'message': str(e)}
+
+    def process_and_search_javdb(self, folder_path: str, stop_event: threading.Event, progress_callback=None):
+        """僅使用 JAVDB 搜尋"""
+        try:
+            if progress_callback: 
+                progress_callback("📊 開始掃描資料夾 (JAVDB 搜尋模式)...\n")
+            video_files = self.file_scanner.scan_directory(folder_path)
+            if not video_files:
+                if progress_callback: 
+                    progress_callback("🤷 未發現任何影片檔案。\n")
+                return {'status': 'success', 'message': '未發現影片檔案'}
+            if progress_callback: 
+                progress_callback(f"📁 發現 {len(video_files)} 個影片檔案。\n")
+            
+            codes_in_db = {v['code'] for v in self.db_manager.get_all_videos()}
+            new_code_file_map = {}
+            for file_path in video_files:
+                code = self.code_extractor.extract_code(file_path.name)
+                if code and code not in codes_in_db:
+                    if code not in new_code_file_map: 
+                        new_code_file_map[code] = []
+                    new_code_file_map[code].append(file_path)
+            if progress_callback:
+                progress_callback(f"✅ 資料庫中已存在 {len(codes_in_db)} 個影片的番號記錄。\n")
+                progress_callback(f"🎯 需要透過 JAVDB 搜尋 {len(new_code_file_map)} 個新番號。\n\n")
+            if not new_code_file_map:
+                if progress_callback: 
+                    progress_callback("🎉 所有影片都已在資料庫中！\n")
+                return {'status': 'success', 'message': '所有番號都已存在於資料庫中'}
+            
+            # 使用 JAVDB 專用搜尋方法
+            search_results = self.web_searcher.batch_search(
+                list(new_code_file_map.keys()), 
+                self.web_searcher.search_javdb_only, 
+                stop_event, 
+                progress_callback
+            )
+            success_count = 0
+            for code, result in search_results.items():
+                if result and result.get('actresses'):
+                    success_count += 1
+                    for file_path in new_code_file_map[code]:
+                        # 優先使用搜尋結果中的片商資訊，只有當搜尋結果沒有片商資訊時才使用本地識別
+                        studio = result.get('studio')
+                        if not studio or studio == 'UNKNOWN':
+                            studio = self.studio_identifier.identify_studio(code)
+                        
+                        info = {
+                            'actresses': result['actresses'], 
+                            'original_filename': file_path.name, 
+                            'file_path': str(file_path), 
+                            'studio': studio, 
+                            'search_method': result.get('source', 'JAVDB')
+                        }
+                        self.db_manager.add_or_update_video(code, info)
+            return {
+                'status': 'success', 
+                'total_files': len(video_files), 
+                'new_codes': len(new_code_file_map), 
+                'success': success_count
+            }
+        except Exception as e:
+            self.logger.error(f"JAVDB 搜尋過程中發生錯誤: {e}", exc_info=True)
             return {'status': 'error', 'message': str(e)}
     
     def interactive_move_files(self, folder_path_str: str, progress_callback=None):
@@ -449,8 +576,7 @@ class UnifiedClassifierCore:
                             if progress_callback: 
                                 progress_callback(f"⚠️ [{processed}/{total_files}] 已存在: {target_actress}/{new_filename}\n")
                             continue
-                        
-                        # 執行移動
+                          # 執行移動
                         shutil.move(str(file_path), str(target_path))
                         move_stats['success'] += 1
                         move_stats['interactive'] += 1
@@ -471,6 +597,76 @@ class UnifiedClassifierCore:
             return {'status': 'success', 'total_files': len(video_files), 'stats': move_stats}
         except Exception as e:
             self.logger.error(f"檔案移動過程中發生錯誤: {e}", exc_info=True)
+            return {'status': 'error', 'message': str(e)}
+    
+    def process_and_search_javdb(self, folder_path: str, stop_event: threading.Event, progress_callback=None):
+        """處理檔案並使用 JAVDB 搜尋"""
+        try:
+            if progress_callback: 
+                progress_callback("📊 開始掃描資料夾 (JAVDB 搜尋)...\n")
+            video_files = self.file_scanner.scan_directory(folder_path)
+            if not video_files:
+                if progress_callback: 
+                    progress_callback("🤷 未發現任何影片檔案。\n")
+                return {'status': 'success', 'message': '未發現影片檔案'}
+            if progress_callback: 
+                progress_callback(f"📁 發現 {len(video_files)} 個影片檔案。\n")
+            
+            codes_in_db = {v['code'] for v in self.db_manager.get_all_videos()}
+            new_code_file_map = {}
+            for file_path in video_files:
+                code = self.code_extractor.extract_code(file_path.name)
+                if code and code not in codes_in_db:
+                    if code not in new_code_file_map: 
+                        new_code_file_map[code] = []
+                    new_code_file_map[code].append(file_path)
+            if progress_callback:
+                progress_callback(f"✅ 資料庫中已存在 {len(codes_in_db)} 個影片的番號記錄。\n")
+                progress_callback(f"🎯 需要搜尋 {len(new_code_file_map)} 個新番號。\n\n")
+            if not new_code_file_map:
+                if progress_callback: 
+                    progress_callback("🎉 所有影片都已在資料庫中！\n")
+                return {'status': 'success', 'message': '所有番號都已存在於資料庫中'}
+              # 使用 JAVDB 專用搜尋方法
+            search_results = self.web_searcher.batch_search(
+                list(new_code_file_map.keys()), 
+                self.web_searcher.search_javdb_only, 
+                stop_event, 
+                progress_callback
+            )
+            success_count = 0
+            for code, result in search_results.items():
+                if result and result.get('actresses'):
+                    success_count += 1
+                    for file_path in new_code_file_map[code]:
+                        # 優先使用搜尋結果中的片商資訊，只有當搜尋結果沒有片商資訊時才使用本地識別
+                        studio = result.get('studio')
+                        if not studio or studio == 'UNKNOWN':
+                            studio = self.studio_identifier.identify_studio(code)
+                        
+                        info = {
+                            'actresses': result['actresses'], 
+                            'original_filename': file_path.name, 
+                            'file_path': str(file_path), 
+                            'studio': studio, 
+                            'search_method': result.get('source', 'JAVDB')                        }
+                        self.db_manager.add_or_update_video(code, info)
+                    success_count += 1
+                    if progress_callback: 
+                        progress_callback(f"✓ {code}: {', '.join(result['actresses'])}\n")
+                else:
+                    if progress_callback: 
+                        progress_callback(f"✗ {code}: 未找到女優資訊\n")
+            
+            if progress_callback:
+                total_codes = len(new_code_file_map)
+                progress_callback(f"\n📊 搜尋結果統計 (JAVDB):\n")
+                progress_callback(f"成功找到: {success_count}/{total_codes} 個番號\n")
+                progress_callback(f"成功率: {success_count/total_codes*100:.1f}%\n")
+            
+            return {'status': 'success', 'message': f'成功搜尋 {success_count} 個番號'}
+        except Exception as e:
+            logger.error(f"JAVDB 搜尋過程發生錯誤: {e}", exc_info=True)
             return {'status': 'error', 'message': str(e)}
     
     def _parse_actresses_list(self, actresses):
