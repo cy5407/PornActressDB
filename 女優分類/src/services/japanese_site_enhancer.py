@@ -147,3 +147,7 @@ def create_japanese_soup(response: httpx.Response, url: str = "") -> BeautifulSo
 def decode_japanese_response(response: httpx.Response, url: str = "") -> Tuple[str, str]:
     """便捷函式：智慧解碼日文網站回應"""
     return japanese_enhancer.smart_decode_response(response, url)
+
+def is_japanese_site(url: str) -> bool:
+    """便捷函式：檢查是否為日文網站"""
+    return japanese_enhancer.is_japanese_site(url)
