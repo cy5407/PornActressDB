@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(mv:*)",
+      "Bash(python test:*)",
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(./venv/Scripts/python.exe run.py)",
+      "Bash(pip install:*)"
+    ],
+    "deny": []
+  }
+}
