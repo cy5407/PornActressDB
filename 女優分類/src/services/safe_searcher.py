@@ -209,13 +209,28 @@ class SafeSearcher:
             cache_path = Path(self.cache_file)
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # 轉換為可序列化的格式
-            cache_data = {key: asdict(entry) for key, entry in self.cache.items()}
+            # 轉換為可序列化的格式，過濾掉 BeautifulSoup 物件
+            from bs4 import BeautifulSoup
+            cache_data = {}
+            
+            for key, entry in self.cache.items():
+                # 檢查資料是否為 BeautifulSoup 物件
+                if isinstance(entry.data, BeautifulSoup):
+                    logger.debug(f"跳過 BeautifulSoup 物件快取: {entry.url}")
+                    continue
+                    
+                try:
+                    # 測試是否可序列化
+                    json.dumps(entry.data, ensure_ascii=False)
+                    cache_data[key] = asdict(entry)
+                except (TypeError, ValueError):
+                    logger.debug(f"跳過不可序列化資料: {entry.url}")
+                    continue
             
             with open(cache_path, 'w', encoding='utf-8') as f:
                 json.dump(cache_data, f, ensure_ascii=False, indent=2)
                 
-            logger.debug(f"💾 已儲存 {len(self.cache)} 個快取項目")
+            logger.debug(f"💾 已儲存 {len(cache_data)} 個快取項目 (跳過 {len(self.cache) - len(cache_data)} 個不可序列化項目)")
         except Exception as e:
             logger.warning(f"保存快取失敗: {e}")
 
@@ -254,6 +269,24 @@ class SafeSearcher:
     def save_to_cache(self, url: str, data: Any, params: dict = None):
         """保存資料到快取"""
         if not self.config.enable_cache:
+            return
+            
+        # 檢查資料是否可序列化
+        try:
+            # 嘗試序列化測試
+            import json
+            from bs4 import BeautifulSoup
+            
+            # 如果是 BeautifulSoup 物件，則不快取
+            if isinstance(data, BeautifulSoup):
+                logger.debug(f"🚫 BeautifulSoup 物件不可快取: {url}")
+                return
+            
+            # 測試是否可以序列化為 JSON
+            json.dumps(data, ensure_ascii=False)
+            
+        except (TypeError, ValueError) as e:
+            logger.debug(f"🚫 資料不可序列化，跳過快取: {url} - {e}")
             return
             
         cache_key = self._generate_cache_key(url, params)

@@ -237,8 +237,7 @@ class SafeJAVDBSearcher:
         """在 JAVDB 搜尋影片資訊"""
         if not video_id:
             return None
-            
-        # 檢查快取
+              # 檢查快取
         cache_key = f"javdb_{video_id.upper()}"
         if cache_key in self.cache:
             logger.debug(f"📋 從快取取得 {video_id} 的 JAVDB 資料")
@@ -252,6 +251,7 @@ class SafeJAVDBSearcher:
             if not response:
                 return None
             
+            # JAVDB 使用標準 UTF-8 編碼，不需要特殊處理
             soup = BeautifulSoup(response.text, 'html.parser')
             
             # 尋找影片連結 - 使用實際的JAVDB結構
@@ -282,8 +282,7 @@ class SafeJAVDBSearcher:
                     best_match_url = href
                     logger.debug(f"🎯 找到匹配的影片連結: {href} (文字: {link_text})")
                     break
-            
-            # 如果沒有找到完全匹配的，使用第一個結果
+              # 如果沒有找到完全匹配的，使用第一個結果
             if not best_match_url:
                 best_match_url = video_links[0].get('href')
                 logger.debug(f"🎲 使用第一個搜尋結果: {best_match_url}")
@@ -299,8 +298,8 @@ class SafeJAVDBSearcher:
             if not detail_response:
                 return None
             
-            # 解析詳情頁面
-            info = self._parse_detail_page(detail_response.text, video_id)
+            # 解析詳情頁面 - 使用編碼增強器
+            info = self._parse_detail_page(detail_response, video_id, detail_url)
             
             if info:
                 # 儲存到快取
@@ -318,10 +317,15 @@ class SafeJAVDBSearcher:
             logger.error(f"❌ 搜尋 {video_id} 時出錯: {e}")
             return None
 
-    def _parse_detail_page(self, html_content: str, video_id: str) -> Optional[Dict[str, Any]]:
+    def _parse_detail_page(self, response: httpx.Response, video_id: str, url: str) -> Optional[Dict[str, Any]]:
         """解析 JAVDB 詳情頁面"""
         try:
-            soup = BeautifulSoup(html_content, 'html.parser')
+            # JAVDB 使用標準 UTF-8 編碼，不需要特殊處理
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            if soup is None:
+                logger.warning(f"無法解析 JAVDB 詳情頁面: {url}")
+                return None
             
             info = {
                 'code': video_id.upper(),

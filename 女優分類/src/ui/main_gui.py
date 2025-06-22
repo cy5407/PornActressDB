@@ -61,17 +61,19 @@ class UnifiedActressClassifierGUI:
         # 功能按鈕區域
         button_frame = ttk.LabelFrame(main_frame, text="🔧 功能選擇", padding="10")
         button_frame.pack(fill="x", pady=5)
-        
-        # 第一排按鈕
+          # 第一排按鈕 - 分離的搜尋按鈕
         row1_frame = ttk.Frame(button_frame)
         row1_frame.pack(fill="x", pady=(0, 5))
-        row1_frame.columnconfigure((0, 1), weight=1)
+        row1_frame.columnconfigure((0, 1, 2), weight=1)
         
-        self.search_btn = ttk.Button(row1_frame, text="🔍 掃描與搜尋", command=self.start_search)
-        self.search_btn.grid(row=0, column=0, padx=(0, 5), sticky="ew", ipady=5)
+        self.search_japanese_btn = ttk.Button(row1_frame, text="🇯🇵 日文網站搜尋", command=self.start_japanese_search)
+        self.search_japanese_btn.grid(row=0, column=0, padx=(0, 2), sticky="ew", ipady=5)
+        
+        self.search_javdb_btn = ttk.Button(row1_frame, text="📊 JAVDB 搜尋", command=self.start_javdb_search)
+        self.search_javdb_btn.grid(row=0, column=1, padx=2, sticky="ew", ipady=5)
         
         self.settings_btn = ttk.Button(row1_frame, text="⚙️ 偏好設定", command=self.show_preferences)
-        self.settings_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew", ipady=5)
+        self.settings_btn.grid(row=0, column=2, padx=(2, 0), sticky="ew", ipady=5)
         
         # 第二排按鈕 - 包含片商分類按鈕
         row2_frame = ttk.Frame(button_frame)
@@ -173,10 +175,10 @@ class UnifiedActressClassifierGUI:
         search_state = 'disabled' if is_task_running else 'normal'
         stop_state = 'normal' if is_task_running else 'disabled'
         
-        # 更新按鈕列表，包含片商分類按鈕
+        # 更新按鈕列表，包含分離搜尋按鈕和片商分類按鈕
         buttons = [
-            self.browse_btn, self.search_btn, self.interactive_move_btn, 
-            self.standard_move_btn, self.studio_classify_btn, self.settings_btn
+            self.browse_btn, self.search_japanese_btn, self.search_javdb_btn,
+            self.interactive_move_btn, self.standard_move_btn, self.studio_classify_btn, self.settings_btn
         ]
         
         for btn in buttons:
@@ -217,6 +219,62 @@ class UnifiedActressClassifierGUI:
                 self.status_var.set("任務已中止")
             elif result['status'] == 'success':
                 self.update_progress(f"\n{'='*60}\n🎉 搜尋任務完成！\n")
+                self.status_var.set("就緒")
+            else:
+                self.update_progress(f"\n💥 錯誤: {result['message']}\n")
+                self.status_var.set(f"錯誤: {result.get('message', '未知錯誤')}")
+
+    def start_japanese_search(self):
+        """開始日文網站搜尋"""
+        path = self.selected_path.get()
+        if not Path(path).is_dir(): 
+            messagebox.showerror("錯誤", "請選擇一個有效的資料夾！")
+            return
+        self.clear_results()
+        self.update_progress(f"目標資料夾: {path}\n")
+        self.update_progress(f"搜尋模式: 🇯🇵 日文網站 (av-wiki.net, chiba-f.net)\n")
+        self.update_progress(f"{'='*60}\n")
+        self.stop_event.clear()
+        threading.Thread(target=self._run_task, args=(self._japanese_search_worker, path), daemon=True).start()
+
+    def start_javdb_search(self):
+        """開始JAVDB搜尋"""
+        path = self.selected_path.get()
+        if not Path(path).is_dir(): 
+            messagebox.showerror("錯誤", "請選擇一個有效的資料夾！")
+            return
+        self.clear_results()
+        self.update_progress(f"目標資料夾: {path}\n")
+        self.update_progress(f"搜尋模式: 📊 JAVDB 網站\n")
+        self.update_progress(f"{'='*60}\n")
+        self.stop_event.clear()
+        threading.Thread(target=self._run_task, args=(self._javdb_search_worker, path), daemon=True).start()
+
+    def _japanese_search_worker(self, path):
+        """日文網站搜尋工作者"""
+        self.status_var.set("執行中：日文網站搜尋...")
+        result = self.core.process_and_search_japanese_sites(path, self.stop_event, self.update_progress)
+        if self.is_running:
+            if self.stop_event.is_set():
+                self.update_progress(f"\n🛑 任務已由使用者中止。\n")
+                self.status_var.set("任務已中止")
+            elif result['status'] == 'success':
+                self.update_progress(f"\n{'='*60}\n🎉 日文網站搜尋任務完成！\n")
+                self.status_var.set("就緒")
+            else:
+                self.update_progress(f"\n💥 錯誤: {result['message']}\n")
+                self.status_var.set(f"錯誤: {result.get('message', '未知錯誤')}")
+
+    def _javdb_search_worker(self, path):
+        """JAVDB搜尋工作者"""
+        self.status_var.set("執行中：JAVDB搜尋...")
+        result = self.core.process_and_search_javdb(path, self.stop_event, self.update_progress)
+        if self.is_running:
+            if self.stop_event.is_set():
+                self.update_progress(f"\n🛑 任務已由使用者中止。\n")
+                self.status_var.set("任務已中止")
+            elif result['status'] == 'success':
+                self.update_progress(f"\n{'='*60}\n🎉 JAVDB搜尋任務完成！\n")
                 self.status_var.set("就緒")
             else:
                 self.update_progress(f"\n💥 錯誤: {result['message']}\n")
