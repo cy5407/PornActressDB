@@ -15,6 +15,7 @@ from urllib.parse import quote
 from models.config import ConfigManager
 from .safe_searcher import SafeSearcher, RequestConfig
 from .safe_javdb_searcher import SafeJAVDBSearcher
+from .japanese_site_enhancer import create_japanese_soup, is_japanese_site
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class WebSearcher:
     """增強版搜尋器 - 支援搜尋結果頁面"""
     
     def __init__(self, config: ConfigManager):
-        # 初始化安全搜尋器配置
+        # 初始化一般搜尋器配置（用於 JAVDB）
         safe_config = RequestConfig(
             min_interval=config.getfloat('search', 'min_interval', fallback=1.0),
             max_interval=config.getfloat('search', 'max_interval', fallback=3.0),
@@ -34,8 +35,20 @@ class WebSearcher:
             rotate_headers=config.getboolean('search', 'rotate_headers', fallback=True)
         )
         
-        # 初始化安全搜尋器
-        self.safe_searcher = SafeSearcher(safe_config)
+        # 初始化日文網站專用配置（較快速，因為比較不會擋爬蟲）
+        japanese_config = RequestConfig(
+            min_interval=config.getfloat('search', 'japanese_min_interval', fallback=0.5),
+            max_interval=config.getfloat('search', 'japanese_max_interval', fallback=1.5),
+            enable_cache=config.getboolean('search', 'enable_cache', fallback=True),
+            cache_duration=config.getint('search', 'cache_duration', fallback=86400),
+            max_retries=config.getint('search', 'max_retries', fallback=3),
+            backoff_factor=config.getfloat('search', 'backoff_factor', fallback=1.5),
+            rotate_headers=config.getboolean('search', 'rotate_headers', fallback=True)
+        )
+        
+        # 初始化搜尋器
+        self.safe_searcher = SafeSearcher(safe_config)  # 用於一般搜尋
+        self.japanese_searcher = SafeSearcher(japanese_config)  # 專用於日文網站
         
         # 初始化 JAVDB 安全搜尋器
         cache_dir = config.get('search', 'cache_dir', fallback=None)
@@ -50,6 +63,7 @@ class WebSearcher:
         self.timeout = config.getint('search', 'request_timeout', fallback=20)
         
         logger.info("🛡️ 已啟用安全搜尋器功能")
+        logger.info("🇯🇵 已啟用日文網站快速搜尋功能")
         logger.info("🎬 已啟用 JAVDB 安全搜尋功能")
 
     def search_info(self, code: str, stop_event: threading.Event) -> Optional[Dict]:
@@ -120,21 +134,23 @@ class WebSearcher:
             return None
 
     def _search_av_wiki(self, code: str, stop_event: threading.Event) -> Optional[Dict]:
-        """AV-WIKI 搜尋方法"""
+        """AV-WIKI 搜尋方法 - 使用日文編碼增強"""
         if stop_event.is_set():
             return None
             
         search_url = f"https://av-wiki.net/?s={quote(code)}&post_type=product"
         
-        # 使用安全搜尋器進行請求
+        # 使用日文網站專用搜尋器進行請求
         def make_request(url, **kwargs):
             with httpx.Client(timeout=self.timeout, **kwargs) as client:
                 response = client.get(url)
                 response.raise_for_status()
-                return BeautifulSoup(response.content, "html.parser")
+                # 使用日文網站編碼增強器
+                return create_japanese_soup(response, url)
         
         try:
-            soup = self.safe_searcher.safe_request(make_request, search_url)
+            # 使用日文網站專用搜尋器（較短延遲）
+            soup = self.japanese_searcher.safe_request(make_request, search_url)
             
             if soup is None:
                 logger.warning(f"無法獲取 {code} 的 AV-WIKI 搜尋頁面")
@@ -222,21 +238,23 @@ class WebSearcher:
         return results
     
     def _search_chiba_f_net(self, code: str, stop_event: threading.Event) -> Optional[Dict]:
-        """使用 chiba-f.net 搜尋女優資訊"""
+        """使用 chiba-f.net 搜尋女優資訊 - 使用日文編碼增強"""
         if stop_event.is_set():
             return None
             
         search_url = f"https://chiba-f.net/search/?keyword={quote(code)}"
         
-        # 使用安全搜尋器進行請求
+        # 使用日文網站專用搜尋器進行請求
         def make_request(url, **kwargs):
             with httpx.Client(timeout=self.timeout, **kwargs) as client:
                 response = client.get(url)
                 response.raise_for_status()
-                return BeautifulSoup(response.content, "html.parser")
+                # 使用日文網站編碼增強器
+                return create_japanese_soup(response, url)
         
         try:
-            soup = self.safe_searcher.safe_request(make_request, search_url)
+            # 使用日文網站專用搜尋器（較短延遲）
+            soup = self.japanese_searcher.safe_request(make_request, search_url)
             
             if soup is None:
                 logger.warning(f"無法獲取 {code} 的 chiba-f.net 搜尋頁面")
