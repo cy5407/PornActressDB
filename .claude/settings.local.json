@@ -11,7 +11,10 @@
       "Bash(sudo apt:*)",
       "Bash(sudo apt install:*)",
       "Bash(./venv/Scripts/python.exe run.py)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(true)"
     ],
     "deny": []
   }

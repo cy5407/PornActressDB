@@ -1,0 +1,37 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        // Go 專案特定設定
+        "go.toolsManagement.autoUpdate": true,
+        "go.useLanguageServer": true,
+        "go.languageServerFlags": [],
+        
+        // 效能優化
+        "go.buildOnSave": "off",
+        "go.lintOnSave": "off",
+        "go.vetOnSave": "off",
+        
+        // 格式化設定
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        },
+        
+        // GitHub Copilot 針對 Go 的設定
+        "github.copilot.autocomplete.enable": true,
+        "github.copilot.enable": {
+            "go": true
+        }
+    },
+    "extensions": {
+        "recommendations": [
+            "golang.go",
+            "github.copilot",
+            "github.copilot-chat"
+        ]
+    }
+}
