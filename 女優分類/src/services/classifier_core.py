@@ -423,7 +423,7 @@ class UnifiedClassifierCore:
 
                 if not is_collaboration:
                     # 單人作品
-                    single_files.append((file_path, code, parsed_actresses, info_result))
+                    single_files.append((file_path, code, parsed_actresses[0], info_result))
                 else:
                     # 多人共演作品
                     collaboration_files.append(
@@ -956,7 +956,7 @@ class UnifiedClassifierCore:
 
                 if not is_multiple:
                     # 單人作品
-                    single_files.append((file_path, code, actresses, info_result))
+                    single_files.append((file_path, code, actresses[0], info_result))
                 else:
                     # 多人共演作品
                     collaboration_files.append(
