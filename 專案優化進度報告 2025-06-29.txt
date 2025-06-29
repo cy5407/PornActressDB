@@ -1,0 +1,124 @@
+好的，這是在您離開之前，我們目前為止所有工作的 Markdown 格式摘要。您可以儲存這份文件，等您回來後，我們就能從上次中斷的地方繼續。
+
+專案優化進度報告 (截至 2025-06-29)
+這份報告總結了目前已完成的程式碼優化工作。主要分為兩個階段：統一錯誤處理和依賴注入架構導入。
+
+Git 存檔點
+在開始所有修改之前，我們已經建立了一個 Git 提交 (
+
+feat: 保存優化前的程式碼狀態 )，確保您目前的所有工作都已安全備份在本地。您可以隨時恢復到優化前的狀態。
+
+
+
+
+第一階段：核心穩定性 - 統一錯誤處理
+此階段的目標是解決第二份分析報告中指出的「錯誤處理不一致」問題 。我們引入了統一的 
+
+Result<T> 模式，以取代原有的 ScrapingException 和不一致的 try-except 區塊，從而提高系統的穩定性和可預測性。
+
+主要變更：
+建立錯誤處理框架
+
+在 src/models/results.py 中新增了 Result, ServiceError 和 ErrorCode 類別，為所有服務和操作提供了標準化的成功/失敗回傳格式。
+
+重構爬蟲層 (scrapers)
+
+
+base_scraper.py: 作為爬蟲的基礎類別，已完全重構 。移除了舊的 
+
+
+
+
+ScrapingException 和 ErrorType，並更新了其核心方法 (如 safe_scrape, retry_async) 以處理和返回 Result 物件。
+
+
+javdb_scraper.py, chibaf_scraper.py, avwiki_scraper.py: 所有具體的爬蟲都已更新，其 scrape_url, parse_content, search_video 等方法現在都遵循新的 Result 模式回傳結果 。
+
+
+
+
+重構服務與模型層 (services & models)
+
+全面更新了 
+
+web_searcher.py, 
+
+
+
+safe_searcher.py, 
+
+safe_javdb_searcher.py , 
+
+studio_classifier.py , 
+
+
+
+database.py , 
+
+
+
+extractor.py , 
+
+
+studio.py, 和 
+
+
+
+scanner.py，確保所有與檔案、網路或資料庫互動的操作都能正確處理和回傳 Result 物件。
+
+第二階段：架構改進 - 依賴注入 (DI)
+此階段的目標是解決「依賴注入不當」和「模組耦合度過高」的問題 。我們引入了 
+
+dependency-injector 框架，將組件的建立和管理集中化，從而降低耦合，提升程式碼的可測試性和可維護性。
+
+主要變更：
+引入依賴注入框架
+
+將 dependency-injector 新增至 requirements.txt 檔案中。
+
+建立依賴注入容器
+
+在 src/container.py 中建立了 Container 類別，並集中定義了應用程式中所有核心服務的依賴關係，例如：
+
+ConfigManager, PreferenceManager
+
+SQLiteDBManager
+
+
+WebSearcher, SafeSearcher, SafeJAVDBSearcher 
+
+
+
+
+UnifiedClassifierCore, StudioClassificationCore 
+
+
+以及其他所有相關服務。
+
+重構核心類別以接收依賴
+
+修改了 
+
+UnifiedClassifierCore (classifier_core.py)  和 
+
+
+
+UnifiedActressClassifierGUI (main_gui.py) 的建構函式 (__init__)，使其不再於內部建立依賴，而是從外部接收已實例化的物件。
+
+修改應用程式入口點
+
+重構了主啟動檔案 
+
+女優分類/run.py 。現在它會先初始化 DI 容器，然後從容器中解析出 
+
+UnifiedActressClassifierGUI 所需的服務實例，並將它們注入到 GUI 中。
+
+後續步驟
+當您回來後，我們將從以下地方繼續：
+
+
+驗證變更：我們將執行 flake8 和 pytest 來檢查程式碼品質並執行單元測試，確保重構沒有引入新的問題 。
+
+繼續架構改進：完成驗證後，我們將著手處理第二階段的其餘部分，例如「改進異步架構」和「添加單元測試」。
+
+請放心，所有進度都已妥善記錄。

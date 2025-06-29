@@ -6,19 +6,14 @@ import shutil
 import logging
 import threading
 from pathlib import Path
-from typing import Dict, List
-from collections import defaultdict
-
-from typing import Dict, List, Optional
-import logging
-import threading
-from pathlib import Path
+from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 
 from ..models.config import ConfigManager
 from ..models.database import SQLiteDBManager
 from ..models.extractor import UnifiedCodeExtractor
 from ..models.studio import StudioIdentifier
+from ..models.results import Result
 from ..utils.scanner import UnifiedFileScanner
 from .web_searcher import WebSearcher
 from .studio_classifier import StudioClassificationCore
@@ -349,8 +344,9 @@ class UnifiedClassifierCore:
                 progress_callback,
             )
             success_count = 0
-            for code, result in search_results.items():
-                if result and result.get("actresses"):
+            for code, result_obj in search_results.items():
+                if result_obj.success and result_obj.data and result_obj.data.get("actresses"):
+                    result = result_obj.data
                     success_count += 1
                     for file_path in new_code_file_map[code]:
                         # 優先使用搜尋結果中的片商資訊，只有當搜尋結果沒有片商資訊時才使用本地識別
@@ -418,23 +414,20 @@ class UnifiedClassifierCore:
                 code = code_result.data
                 
                 info_result = self.db_manager.get_video_info(code)
-                if not info_result.success or not info_result.data or not info_result.data.get("actresses"):
-                    continue
-                info = info_result.data
+                
+                # 直接將 Result 物件傳遞給解析函式
+                parsed_actresses, is_collaboration = self._parse_actresses_list(info_result)
 
-                actresses = info_result.data["actresses"]
-                # 使用正確的解析邏輯來判斷單人/多人共演
-                parsed_actresses, is_collaboration = self._parse_actresses_list(
-                    actresses
-                )
+                if not parsed_actresses:
+                    continue
 
                 if not is_collaboration:
                     # 單人作品
-                    single_files.append((file_path, code, parsed_actresses, info))
+                    single_files.append((file_path, code, parsed_actresses, info_result))
                 else:
                     # 多人共演作品
                     collaboration_files.append(
-                        (file_path, code, parsed_actresses, info)
+                        (file_path, code, parsed_actresses, info_result)
                     )
 
             if progress_callback:
@@ -446,7 +439,7 @@ class UnifiedClassifierCore:
             # 處理所有檔案
             all_files = single_files + collaboration_files
 
-            for i, (file_path, code, actresses, info) in enumerate(all_files, 1):
+            for i, (file_path, code, actresses, _) in enumerate(all_files, 1):
                 if skip_all:
                     move_stats["skipped"] += 1
                     continue
@@ -584,26 +577,23 @@ class UnifiedClassifierCore:
                 code = code_result.data
                 
                 info_result = self.db_manager.get_video_info(code)
-                if not info_result.success or not info_result.data or not info_result.data.get("actresses"):
+
+                # 直接將 Result 物件傳遞給解析函式
+                parsed_actresses, is_collaboration = self._parse_actresses_list(info_result)
+                
+                if not parsed_actresses:
                     no_data_files.append(file_path)
                     continue
-
-                info = info_result.data
-                actresses = info["actresses"]
-                # 使用新的解析邏輯來判斷單人/多人共演
-                parsed_actresses, is_collaboration = self._parse_actresses_list(
-                    actresses
-                )
 
                 if not is_collaboration:
                     # 單人作品
                     single_actress_files.append(
-                        (file_path, code, parsed_actresses[0], info)
+                        (file_path, code, parsed_actresses[0], info_result)
                     )
                 else:
                     # 多人共演作品
                     collaboration_files.append(
-                        (file_path, code, parsed_actresses, info)
+                        (file_path, code, parsed_actresses, info_result)
                     )
 
             if progress_callback:
@@ -631,7 +621,7 @@ class UnifiedClassifierCore:
                         f"🏃 開始自動處理 {len(single_actress_files)} 個單人作品...\n"
                     )
 
-                for file_path, code, main_actress, info in single_actress_files:
+                for file_path, code, main_actress, _ in single_actress_files:
                     processed += 1
                     target_folder = folder_path / main_actress
                     target_folder.mkdir(exist_ok=True)
@@ -678,7 +668,7 @@ class UnifiedClassifierCore:
 
                 skip_all = False
 
-                for file_path, code, actresses, info in collaboration_files:
+                for file_path, code, actresses, _ in collaboration_files:
                     processed += 1
 
                     if skip_all:
@@ -849,8 +839,9 @@ class UnifiedClassifierCore:
                 progress_callback,
             )
             success_count = 0
-            for code, result in search_results.items():
-                if result and result.get("actresses"):
+            for code, result_obj in search_results.items():
+                if result_obj.success and result_obj.data and result_obj.data.get("actresses"):
+                    result = result_obj.data
                     success_count += 1
                     for file_path in new_code_file_map[code]:
                         # 優先使用搜尋結果中的片商資訊，只有當搜尋結果沒有片商資訊時才使用本地識別
@@ -871,8 +862,9 @@ class UnifiedClassifierCore:
                             f"✓ {code}: {', '.join(result['actresses'])}\n"
                         )
                 else:
+                    error_msg = result_obj.error.message if result_obj.success == False and result_obj.error else "未找到女優資訊"
                     if progress_callback:
-                        progress_callback(f"✗ {code}: 未找到女優資訊\n")
+                        progress_callback(f"✗ {code}: {error_msg}\n")
 
             if progress_callback:
                 total_codes = len(new_code_file_map)
@@ -885,152 +877,56 @@ class UnifiedClassifierCore:
             logger.error(f"JAVDB 搜尋過程發生錯誤: {e}", exc_info=True)
             return {"status": "error", "message": str(e)}
 
-    def _parse_actresses_list(self, actresses):
+    def _parse_actresses_list(self, info_result: Result) -> Tuple[List[str], bool]:
         """
-        解析女優名單, 處理用 # 分隔的多人共演格式
+        安全地解析包含女優資訊的 Result 物件。
 
         Args:
-            actresses: 資料庫中的女優列表
+            info_result: 從 db_manager.get_video_info() 回傳的 Result 物件。
 
         Returns:
-            tuple: (parsed_actresses_list, is_collaboration)
+            一個包含 (女優列表, 是否為多人共演) 的元組。
+            如果解析失敗或無資料，則回傳 ([], False)。
         """
-        if not actresses:
+        # 1. 徹底的防禦性檢查：確保 Result 物件有效且包含所需資料
+        if not info_result.success or not info_result.data:
             return [], False
 
-        # 如果有多個女優記錄，直接返回
-        if len(actresses) > 1:
-            return actresses, True
+        actresses_data = info_result.data.get("actresses")
+        if not actresses_data:
+            return [], False
 
-        # 檢查單一記錄是否包含 # 分隔的多個女優
-        actress_str = actresses[0]
-        if "#" in actress_str:
-            # 解析 # 分隔的女優名單
-            parsed_actresses = []
-            for name in actress_str.split("#"):
-                name = name.strip()
-                if name:
-                    parsed_actresses.append(name)
+        # 2. 處理不同格式的女優資料
+        if isinstance(actresses_data, list):
+            actresses_list = [str(actress).strip() for actress in actresses_data if str(actress).strip()]
+            is_multiple = len(actresses_list) > 1
+            return actresses_list, is_multiple
+        elif isinstance(actresses_data, str):
+            # 處理以逗號分隔的字串
+            actresses_list = [name.strip() for name in actresses_data.split(',') if name.strip()]
+            is_multiple = len(actresses_list) > 1
+            return actresses_list, is_multiple
+        
+        return [], False
 
-            return parsed_actresses, len(parsed_actresses) > 1
-
-        # 單一女優
-        return [actress_str], False
-
-
-class ActressClassificationCore:
-    """舊版核心業務邏輯類別 (保留參考)"""
-
-    def __init__(self, config, db_manager, code_extractor, file_scanner, web_searcher):
-        self.config = config
-        self.db_manager = db_manager
-        self.code_extractor = code_extractor
-        self.file_scanner = file_scanner
-        self.web_searcher = web_searcher
-        self.logger = logging.getLogger(__name__)
-        self.studio_identifier = StudioIdentifier()
-        self.interactive_classifier = InteractiveClassifier(
-            self.config.get_preference
-        )
-
-    def process_and_search(
-        self, folder_path: str, stop_event: threading.Event, progress_callback=None
-    ):
-        """處理檔案並搜尋女優資訊"""
+    def interactive_move_files_alt(self, target_dir: str, progress_callback=None):
+        """互動式檔案移動 - 支援多女優共演的偏好選擇（備用版本）"""
         try:
+            folder_path = Path(target_dir)
             if progress_callback:
-                progress_callback("🔍 開始掃描資料夾...\n")
-            scan_result = self.file_scanner.scan_directory(folder_path)
+                progress_callback(f"🔍 開始掃描 {folder_path} 並準備互動式移動...\n")
+            else:
+                self.logger.info(f"開始掃描 {folder_path} 並準備互動式移動...")
+            # 掃描目標資料夾
+            scan_result = self.file_scanner.scan_directory(target_dir, recursive=False)
             if not scan_result.success:
-                if progress_callback:
-                    progress_callback(f"❌ 掃描資料夾失敗: {scan_result.error.message}\n")
+                self.logger.error(f"掃描資料夾失敗: {scan_result.error.message}")
                 return {"status": "error", "message": scan_result.error.message}
             
             video_files = scan_result.data
             if not video_files:
-                if progress_callback:
-                    progress_callback("🤷 未發現任何影片檔案。\n")
-                return {"status": "success", "message": "未發現影片檔案"}
-            if progress_callback:
-                progress_callback(f"📁 發現 {len(video_files)} 個影片檔案。\n")
-
-            # 獲取資料庫中的所有影片程式碼
-            all_videos_result = self.db_manager.get_all_videos()
-            if not all_videos_result.success:
-                logger.error(f"無法獲取資料庫中的影片清單: {all_videos_result.error}")
-                return {"status": "error", "message": f"資料庫查詢失敗: {all_videos_result.error}"}
-            
-            codes_in_db = {v["code"] for v in all_videos_result.data}
-            new_code_file_map = {}
-            for file_path in video_files:
-                code_result = self.code_extractor.extract_code(file_path.name)
-                if not code_result.success or not code_result.data:
-                    continue
-                code = code_result.data
-                if code and code not in codes_in_db:
-                    if code not in new_code_file_map:
-                        new_code_file_map[code] = []
-                    new_code_file_map[code].append(file_path)
-            if progress_callback:
-                progress_callback(
-                    f"✅ 資料庫中已存在 {len(codes_in_db)} 個影片的番號記錄。\n"
-                )
-                progress_callback(
-                    f"🎯 需要搜尋 {len(new_code_file_map)} 個新番號。\n\n"
-                )
-            if not new_code_file_map:
-                if progress_callback:
-                    progress_callback("🎉 所有影片都已在資料庫中！\n")
-                return {"status": "success", "message": "所有番號都已存在於資料庫中"}
-
-            search_results = self.web_searcher.batch_search(
-                list(new_code_file_map.keys()), stop_event, progress_callback
-            )
-            success_count = 0
-            for code, result in search_results.items():
-                if result and result.get("actresses"):
-                    success_count += 1
-                    for file_path in new_code_file_map[code]:
-                        studio = self.studio_identifier.identify_studio(code)
-                        info = {
-                            "actresses": result["actresses"],
-                            "original_filename": file_path.name,
-                            "file_path": str(file_path),
-                            "studio": studio,
-                        }
-                        self.db_manager.add_or_update_video(code, info)
-            return {
-                "status": "success",
-                "total_files": len(video_files),
-                "new_codes": len(new_code_file_map),
-                "success": success_count,
-            }
-        except Exception as e:
-            self.logger.error(f"搜尋過程中發生錯誤: {e}", exc_info=True)
-            return {"status": "error", "message": str(e)}
-
-    def move_files(self, folder_path_str: str, progress_callback=None):
-        """移動檔案到女優資料夾"""
-        try:
-            folder_path = Path(folder_path_str)
-            if progress_callback:
-                progress_callback(f"🔍 開始掃描 {folder_path} 並準備移動...\n")
-            scan_result = self.file_scanner.scan_directory(
-                folder_path_str, recursive=False
-            )
-            if not scan_result.success:
-                if progress_callback:
-                    progress_callback(f"❌ 掃描資料夾失敗: {scan_result.error.message}\n")
-                return {"status": "error", "message": scan_result.error.message}
-            
-            video_files = scan_result.data
-            if not video_files:
-                if progress_callback:
-                    progress_callback("🤷 目標資料夾中沒有影片檔案可移動。\n")
-                return {
-                    "status": "success",
-                    "message": "目標資料夾中沒有影片檔案可移動。",
-                }
+                self.logger.info("目標資料夾中沒有影片檔案可移動。")
+                return {"status": "success", "message": "目標資料夾中沒有影片檔案可移動。"}
 
             move_stats = {
                 "success": 0,
@@ -1040,79 +936,130 @@ class ActressClassificationCore:
                 "skipped": 0,
             }
             skip_all = False
-            for i, file_path in enumerate(video_files, 1):
-                if skip_all:
-                    move_stats["skipped"] += 1
-                    continue
+            # 分析需要互動選擇的檔案
+            collaboration_files = []
+            single_files = []
 
+            for file_path in video_files:
                 code_result = self.code_extractor.extract_code(file_path.name)
                 if not code_result.success or not code_result.data:
                     continue
                 code = code_result.data
-
+                
                 info_result = self.db_manager.get_video_info(code)
-                if not info_result.success or not info_result.data or not info_result.data.get("actresses"):
-                    move_stats["no_data"] += 1
-                    if progress_callback:
-                        progress_callback(
-                            f"❓ [{i}/{len(video_files)}] {file_path.name}: 資料庫中無資料\n"
-                        )
+                
+                # 直接將 Result 物件傳遞給新的解析函式
+                actresses, is_multiple = self._parse_actresses_list(info_result)
+
+                if not actresses:
                     continue
-                info = info_result.data
 
-                actresses = info["actresses"]
-                if len(actresses) == 1:
-                    target_actress = actresses[0]
+                if not is_multiple:
+                    # 單人作品
+                    single_files.append((file_path, code, actresses, info_result))
                 else:
-                    choice, remember = (
-                        self.interactive_classifier.get_classification_choice(
-                            code, actresses
-                        )
+                    # 多人共演作品
+                    collaboration_files.append(
+                        (file_path, code, actresses, info_result)
                     )
-                    if choice == "SKIP_ALL":
-                        skip_all = True
-                        move_stats["skipped"] += 1
-                        if progress_callback:
-                            progress_callback(f"⏭️ 使用者選擇跳過所有後續檔案\n")
-                        continue
-                    elif choice == "SKIP":
-                        move_stats["skipped"] += 1
-                        if progress_callback:
-                            progress_callback(
-                                f"⏭️ [{i}/{len(video_files)}] 跳過: {file_path.name}\n"
-                            )
-                        continue
-                    target_actress = choice
-                    if remember:
-                        self.config.save_preference(
-                            f"collaboration_{code}", target_actress
-                        )
 
-                target_folder = folder_path / target_actress
-                target_folder.mkdir(exist_ok=True)
-                target_path = target_folder / file_path.name
+            if self.logger.isEnabledFor(logging.INFO):
+                self.logger.info(
+                    f"分析結果: {len(single_files)} 個單人作品, {len(collaboration_files)} 個多人共演作品"
+                )
+                if collaboration_files:
+                    self.logger.info("開始處理多人共演作品的分類選擇...")
+            # 處理所有檔案
+            all_files = single_files + collaboration_files
 
-                if target_path.exists():
-                    move_stats["exists"] += 1
-                    if progress_callback:
-                        progress_callback(
-                            f"⚠️ [{i}/{len(video_files)}] {file_path.name}: 檔案已存在於目標資料夾\n"
-                        )
+            for i, (file_path, code, actresses, _) in enumerate(all_files, 1):
+                if skip_all:
+                    move_stats["skipped"] += 1
                     continue
 
                 try:
+                    # 決定分類目標
+                    if len(actresses) == 1:
+                        target_actress = actresses[0]
+                        remember = False
+                    else:
+                        if not self.interactive_classifier:
+                            target_actress = actresses[0]
+                            remember = False
+                        else:
+                            choice, remember = (
+                                self.interactive_classifier.get_classification_choice(
+                                    code, actresses
+                                )
+                            )
+
+                            if choice == "SKIP_ALL":
+                                skip_all = True
+                                move_stats["skipped"] += 1
+                                if self.logger.isEnabledFor(logging.INFO):
+                                    self.logger.info(f"使用者選擇跳過所有後續檔案")
+                                continue
+                            elif choice == "SKIP":
+                                move_stats["skipped"] += 1
+                                if self.logger.isEnabledFor(logging.INFO):
+                                    self.logger.info(
+                                        f"跳過: {file_path.name}"
+                                    )
+                                continue
+
+                            target_actress = choice
+
+                    # 記住偏好設定
+                    if remember and len(actresses) > 1:
+                        self.preference_manager.save_collaboration_preference(
+                            actresses, target_actress
+                        )
+                        if self.logger.isEnabledFor(logging.INFO):
+                            self.logger.info(
+                                f"已記住組合偏好: {', '.join(actresses)} → {target_actress}"
+                            )
+
+                    # 建立目標資料夾
+                    target_folder = folder_path / target_actress
+                    target_folder.mkdir(exist_ok=True)
+
+                    # 決定檔案名稱
+                    if len(actresses) > 1 and self.preference_manager.preferences.get(
+                        "auto_tag_filenames", True
+                    ):
+                        actresses_tag = f" ({', '.join(actresses)})"
+                        base_name = file_path.stem
+                        new_filename = f"{base_name}{actresses_tag}{file_path.suffix}"
+                    else:
+                        new_filename = file_path.name
+
+                    target_path = target_folder / new_filename
+
+                    # 檢查檔案是否已存在
+                    if target_path.exists():
+                        move_stats["exists"] += 1
+                        if self.logger.isEnabledFor(logging.INFO):
+                            self.logger.info(
+                                f"已存在: {target_actress}/{new_filename}"
+                            )
+                        continue
+
+                    # 執行移動
                     shutil.move(str(file_path), str(target_path))
                     move_stats["success"] += 1
-                    if progress_callback:
-                        progress_callback(
-                            f"✅ [{i}/{len(video_files)}] {file_path.name} → {target_actress}/\n"
+
+                    actresses_display = f" (共演: {', '.join(actresses)})" if len(actresses) > 1 else ""
+                    if self.logger.isEnabledFor(logging.INFO):
+                        self.logger.info(
+                            f"移動成功: {file_path.name} → {target_actress}/{new_filename}{actresses_display}"
                         )
+
                 except Exception as e:
                     move_stats["failed"] += 1
-                    self.logger.error(f"移動檔案 {file_path.name} 失敗: {e}")
-                    if progress_callback:
-                        progress_callback(
-                            f"❌ [{i}/{len(video_files)}] {file_path.name}: 移動失敗\n"
+                    logger.error(f"移動檔案 {file_path.name} 失敗: {e}")
+                    if self.logger.isEnabledFor(logging.INFO):
+                        self.logger.info(
+                            f"移動失敗: {file_path.name}: {str(e)}"
                         )
 
             return {
@@ -1120,6 +1067,8 @@ class ActressClassificationCore:
                 "total_files": len(video_files),
                 "stats": move_stats,
             }
+
         except Exception as e:
-            self.logger.error(f"檔案移動過程中發生錯誤: {e}", exc_info=True)
+            self.logger.error(f"互動式檔案移動過程中發生錯誤: {e}", exc_info=True)
             return {"status": "error", "message": str(e)}
+

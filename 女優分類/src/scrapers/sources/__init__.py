@@ -4,11 +4,7 @@
 """
 
 from .javdb_scraper import JAVDBScraper
-from .avwiki_scraper import AVWikiScraper  
+from .avwiki_scraper import AVWikiScraper
 from .chibaf_scraper import ChibaFScraper
 
-__all__ = [
-    'JAVDBScraper',
-    'AVWikiScraper', 
-    'ChibaFScraper'
-]
+__all__ = ["JAVDBScraper", "AVWikiScraper", "ChibaFScraper"]

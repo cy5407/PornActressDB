@@ -28,6 +28,9 @@ if __name__ == "__main__":
     from tkinter import messagebox
     import logging
     
+    # 導入依賴注入容器
+    from src.container import Container
+    
     # 設定日誌
     logging.basicConfig(
         level=logging.INFO,
@@ -43,11 +46,10 @@ if __name__ == "__main__":
     try:
         logger.info("🚀 啟動女優分類系統 - 完整版 v5.4.3 (智慧分類強化版)...")
         
-        # 初始化安全搜尋器設定
-        logger.info("🛡️ 初始化安全搜尋功能...")
+        # 建立依賴注入容器實例
+        container = Container()
         
         # 建立必要的資料夾
-        from pathlib import Path
         data_dir = Path('data')
         data_dir.mkdir(exist_ok=True)
         cache_dir = Path('cache')
@@ -65,10 +67,16 @@ if __name__ == "__main__":
             logger.info("✨ 已載入 ttkbootstrap 美化主題")
         except ImportError:
             logger.info("📋 使用預設 tkinter 主題")
-          # 匯入並啟動主介面
-        import ui.main_gui
-        from ui.main_gui import UnifiedActressClassifierGUI
-        app = UnifiedActressClassifierGUI(root)
+        
+        # 解析依賴
+        config_manager = container.config_manager()
+        unified_classifier_core = container.unified_classifier_core()
+        # 傳遞 Tkinter root 物件給 InteractiveClassifier
+        interactive_classifier = container.interactive_classifier(gui_parent=root)
+        
+        # 匯入並啟動主介面
+        from src.ui.main_gui import UnifiedActressClassifierGUI
+        app = UnifiedActressClassifierGUI(root, config_manager, unified_classifier_core, interactive_classifier)
         
         logger.info("🎬 GUI 介面已啟動")
         root.mainloop()
