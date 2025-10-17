@@ -74,6 +74,10 @@ yarn-error.log*
 *.sqlite
 *.sqlite3
 
+# 但保留專案資料庫
+!data/actress_classifier.db
+!data/*.db
+
 # 文件建構
 _build/
 
